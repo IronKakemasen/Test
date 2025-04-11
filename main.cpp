@@ -1,7 +1,5 @@
 #include <Windows.h>
 #include <cstdint>
-#include "AboutDebugLog.h"
-#include "AboutException.h"
 #include <d3d12.h>
 #pragma comment(lib,"d3d12.lib")
 #include <dxgi1_6.h>
@@ -9,82 +7,19 @@
 #include <cassert>
 #include <dxgidebug.h>
 #pragma comment(lib,"dxguid.lib")
+#include "AboutWindow.h"
 
 
-
-//ウィンドウプロシージャ
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,
-	WPARAM wparam, LPARAM lparam)
-{
-	//メッセージに応じてゲーム固有の処理を行う
-	switch (msg)
-	{
-		//ウィンドウが破棄された
-	case WM_DESTROY:
-		//OSに対して、アプリの終了を伝える
-		PostQuitMessage(0);
-
-		return 0;
-	}
-
-	//標準メッセージの処理を行う
-	return DefWindowProc(hwnd, msg, wparam, lparam);
-
-}
 
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
-
-	//*********************************デバッグヘルパー************************************************************
-	//誰も捕捉しなかった場合に(Unhandled)、補足する関数を登録
-	//main関数始まってすぐに登録するといい
-	SetUnhandledExceptionFilter(ExportDump);
-
-
-
-	//ーーーーーーーーーーーーーーーーーーーーLogーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
-	std::filesystem::create_directory("DebugLog");
-	std::ofstream tmp = DebugLogInitialize();
+	//ウィンドウ、デバッグ、例外設定？の初期化
+	MySetUp mySetUp;
+	mySetUp.InitializeWindowAndSome(1280, 720);
 
 	//------------------------------------意味不ゾーン-------------------------------------------------------------
-	WNDCLASS wc{};
-	//ウィンドウプロシージャ
-	wc.lpfnWndProc = WindowProc;
-	//ウィンドウクラス名
-	wc.lpszClassName = L"TestKun";
-	//インスタンスハンドル
-	wc.hInstance = GetModuleHandle(nullptr);
-	//カーソル
-	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	//ウィンドウクラスを登録する
-	RegisterClass(&wc);
 
-	//クライアントの領域サイズ
-	int32_t const kClientWidth = 1280;
-	int32_t const kClientHeight = 720;
-
-	//ウィンドウサイズを表す構造体にクライアント領域を入れる
-	RECT wrc = { 0,0,kClientWidth,kClientHeight };
-	//クライアント領域をもとに実際のサイズにwrcを変更してもらう
-	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
-
-	//ウィンドウの生成
-	HWND hwnd = CreateWindow(
-		wc.lpszClassName,		//利用するクラス名
-		L"CG2",					//タイトルバーの文字
-		WS_OVERLAPPEDWINDOW,	//ウィンドウスタイル
-		CW_USEDEFAULT,			//表示x座標
-		CW_USEDEFAULT,			//表示y座標
-		wrc.right - wrc.left,	//ウィンドウ横幅
-		wrc.bottom - wrc.top,	//ウィンドウ縦幅
-		nullptr,				//親ウィンドウハンドル
-		nullptr,				//メニューハンドル
-		wc.hInstance,			//インスタンスハンドル
-		nullptr);				//オプション
-
-	//ウィンドウを表示する
-	ShowWindow(hwnd, SW_SHOW);
 	
 	//DXGIファクトリーの作成
 	IDXGIFactory7* dxgiFactory = nullptr;
@@ -109,7 +44,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (!(adapterDisc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE))
 		{
 			//採用したアダプタの情報をログに出力
-			Log(tmp, ConvertString(std::format(L"Use Adapter:{}\n", adapterDisc.Description)));
+			Log(mySetUp.debugLog, ConvertString(std::format(L"Use Adapter:{}\n", adapterDisc.Description)));
+
 			break;
 		}
 		//ソフトウェアアダプタの場合はなかったことに
@@ -137,14 +73,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (SUCCEEDED(hr))
 		{
 			//生成できたのでログを出力してループを抜ける
-			Log(tmp, std::format("FeatureLevel:{}\n", featureLevelStrings[i]));
+			Log(mySetUp.debugLog, std::format("FeatureLevel:{}\n", featureLevelStrings[i]));
 			break;
 		}
 	}
 
 	//デバイスの生成が上手くいかなかったので起動できない
 	assert(device != nullptr);
-	Log(tmp,"Complete create D3D12Device\n");
+	Log(mySetUp.debugLog,"Complete create D3D12Device\n");
 	//エラー解消のために
 #ifdef _DEBUG
 	ID3D12InfoQueue* infoQueue = nullptr;
@@ -190,12 +126,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	hr = device->CreateFence(fenceValue, D3D12_FENCE_FLAG_NONE,
 		IID_PPV_ARGS(&fence));
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete built fence\n");
+	Log(mySetUp.debugLog, "Complete built fence\n");
 
 	//FenceのSignalを待つためのイベント（WINDOWへのメッセージ）を作成する
 	HANDLE fenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	assert(fenceEvent != nullptr);
-	Log(tmp, "Complete creat event\n");
+	Log(mySetUp.debugLog, "Complete creat event\n");
 
 
 
@@ -206,7 +142,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		IID_PPV_ARGS(&commandQueue));
 	//コマンドキューの生成がうまくいかなかった場合はエラー
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete create CommandQueue\n");
+	Log(mySetUp.debugLog, "Complete create CommandQueue\n");
 
 
 	//コマンドアローケータの生成
@@ -215,7 +151,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		IID_PPV_ARGS(&commandAllocator));
 	//生成がうまくいかなかった場合はエラー
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete create AlloCator\n");
+	Log(mySetUp.debugLog, "Complete create AlloCator\n");
 
 
 	//コマンドリストを生成する
@@ -224,15 +160,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		nullptr, IID_PPV_ARGS(&commandList));
 	//生成失敗
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete create CommandList\n");
+	Log(mySetUp.debugLog, "Complete create CommandList\n");
 
 
 	//SwapChainの作成
 	IDXGISwapChain4* swapChain = nullptr;
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
 	//画面の縦横。クライアント領域と同じにしておく
-	swapChainDesc.Width = kClientWidth;		
-	swapChainDesc.Height = kClientHeight;
+	swapChainDesc.Width = mySetUp.kClientWidth;
+	swapChainDesc.Height = mySetUp.kClientHeight;
 	//色の形成
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	//マルチサンプルしない
@@ -244,11 +180,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//モニタに移したら中身を破棄
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	//コマンドキュー、ウィンドウハンドル、設定を渡して生成する
-	hr = dxgiFactory->CreateSwapChainForHwnd(commandQueue, hwnd, &swapChainDesc,
+	hr = dxgiFactory->CreateSwapChainForHwnd(commandQueue, mySetUp.hwnd, &swapChainDesc,
 		nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(&swapChain));
 	//生成失敗
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete create SwapChain\n");
+	Log(mySetUp.debugLog, "Complete create SwapChain\n");
 
 
 	//ディスクリプタヒープの作成
@@ -261,7 +197,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	hr = device->CreateDescriptorHeap(&rtvDescriptorHeapDesc, IID_PPV_ARGS(&rtvDescriptorHeap));
 	//生成失敗
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete create DescriptorHeap\n");
+	Log(mySetUp.debugLog, "Complete create DescriptorHeap\n");
 
 	//SwapChainからResourceを引っ張ってくる
 	ID3D12Resource* swapChainResources[2] = { nullptr };
@@ -271,7 +207,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	hr = swapChain->GetBuffer(1, IID_PPV_ARGS(&swapChainResources[1]));
 	//生成失敗
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete pull Resource\n");
+	Log(mySetUp.debugLog, "Complete pull Resource\n");
 
 
 	//RTVの設定
@@ -330,7 +266,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//コマンドリストの内容を確定させる
 	hr = commandList->Close();
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete stack command\n");
+	Log(mySetUp.debugLog, "Complete stack command\n");
 	
 	//GPUにコマンドリストの実行を行わさせる
 	ID3D12CommandList* commandLists[] = { commandList };
@@ -351,7 +287,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		fence->SetEventOnCompletion(fenceValue, fenceEvent);
 		//イベント待つ
 		WaitForSingleObject(fenceEvent, INFINITE);
-		Log(tmp, "mattawayo\n");
+		Log(mySetUp.debugLog, "mattawayo\n");
 	}
 
 	//次のフレーム用のコマンドリストを準備
@@ -359,7 +295,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	assert(SUCCEEDED(hr));
 	hr = commandList->Reset(commandAllocator, nullptr);;
 	assert(SUCCEEDED(hr));
-	Log(tmp, "Complete kickAndReset command\n");
+	Log(mySetUp.debugLog, "Complete kickAndReset command\n");
 
 	//--------------------+-+--
 
@@ -426,7 +362,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//#ifdef _DEBUG
 	//	debugController
 	//#endif
-	CloseWindow(hwnd);
+	CloseWindow(mySetUp.hwnd);
 
 
 	return 0;
