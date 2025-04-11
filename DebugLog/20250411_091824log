@@ -1,0 +1,26 @@
+Use Adapter:NVIDIA GeForce RTX 3050 Ti Laptop GPU
+
+FeatureLevel:12.2
+
+Complete create D3D12Device
+
+Complete built fence
+
+Complete creat event
+
+Complete create CommandQueue
+
+Complete create AlloCator
+
+Complete create CommandList
+
+Complete create SwapChain
+
+Complete create DescriptorHeap
+
+Complete pull Resource
+
+Complete stack command
+
+Complete kickAndReset command
+
