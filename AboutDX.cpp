@@ -47,13 +47,15 @@ void MyDX::Initialize()
 	//DXの行列の設定
 	iD3D12SetUp.SetDXMatrix(windowSetUp.kClientWidth, windowSetUp.kClientHeight);
 	//VertexResourceの生成
-	iD3D12SetUp.MakeVertexResource(deviceSetUp.device);
+	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vec4<float>) * 3);	
+	//materilalResourceの生成
+	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vec4<float>));
 	//VBV(vertexBufferView)の作成
 	iD3D12SetUp.MakeVBV();
 	//頂点リソースにデータを書き込む
 	iD3D12SetUp.OverrideVertexData();
-
-
+	//マテリアルリソースにデータを書き込む
+	iD3D12SetUp.OverrideMaterialData();
 
 }
 void MyDX::Update()

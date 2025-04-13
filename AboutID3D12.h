@@ -35,9 +35,13 @@ struct ID3D12SetUp
 
 	//RootSignature
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSIgnature{};
+	//具体的にshaderがどこかでデータを読めばいいのかの情報をまとめたもの
+	//shaderとPSOのバインダー
 	ID3D12RootSignature* rootSignature = nullptr;
 	ID3DBlob* signatureBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
+	//複数設定できるので配列
+	D3D12_ROOT_PARAMETER rootParameters[1] = {};
 
 
 	//InputLayout
@@ -55,9 +59,10 @@ struct ID3D12SetUp
 	ID3D12PipelineState* graghicsPipelineState = nullptr;
 
 	//VertexResource
-	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
 	ID3D12Resource* vertexResource = nullptr;
-	Vec4<float>* vertexData = nullptr;
+
+	//MaterialResource
+	ID3D12Resource* materialResource = nullptr;
 
 	//VBV
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
@@ -66,6 +71,23 @@ struct ID3D12SetUp
 	D3D12_VIEWPORT viewPort{};
 	//シザー矩形
 	D3D12_RECT scissorRect{};
+	
+
+	//ConstantBufferを1つ読むための設定（関数内部）
+	void SetRootPara()
+	{
+		//CBVを使う(b0のb)
+		rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+		//PixcelShaderで使う
+		rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		//レジスタ番号0とバインド
+		rootParameters[0].Descriptor.ShaderRegister = 0;
+		//ルートパラメータ配列へのポインタ
+		descriptionRootSIgnature.pParameters = rootParameters;
+		//配列の長さ
+		descriptionRootSIgnature.NumParameters = _countof(rootParameters);
+	}
+
 
 	//DXの行列の設定
 	void SetDXMatrix(int32_t kClientWidth_, int32_t kClientHeight_)
@@ -84,9 +106,23 @@ struct ID3D12SetUp
 		scissorRect.top = 0;
 	}
 
+	//マテリアルリソースにデータを書き込む
+	void OverrideMaterialData()
+	{
+		Vec4<float>* materialData = nullptr;
+
+		//書き込むためのアドレスを取得
+		materialResource->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
+		//色
+		*materialData = { 1.0f,0.0f,0.0f,1.0f };
+
+	}
+
 	//頂点リソースにデータを書き込む
 	void OverrideVertexData()
 	{
+		Vec4<float>* vertexData = nullptr;
+
 		//書き込むためのアドレスを取得
 		vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
 		//左下
@@ -108,33 +144,6 @@ struct ID3D12SetUp
 		vertexBufferView.SizeInBytes = sizeof(Vec4<float>) * 3;
 		//1頂点当たりのサイズ
 		vertexBufferView.StrideInBytes = sizeof(Vec4<float>);
-	}
-
-	//VertexResourceの生成
-	void MakeVertexResource(ID3D12Device* device_)
-	{
-		//頂点リソースのヒープ設定
-		//upLoadHEapを使う
-		uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
-		//頂点リソースの設定
-		D3D12_RESOURCE_DESC vertexResourceDesc{};
-		//バッファリソース。テクスチャの場合はまた別の設定をする
-		vertexResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		//リソースのサイズ。今回はVecter4を4頂点分
-		vertexResourceDesc.Width = sizeof(Vec4<float>) * 3;
-		//バッファの場合はこれらを1にする決まり
-		vertexResourceDesc.Height = 1;
-		vertexResourceDesc.DepthOrArraySize = 1;
-		vertexResourceDesc.MipLevels = 1;
-		vertexResourceDesc.SampleDesc.Count = 1;
-		//決まり2
-		vertexResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-		//実際に頂点リソースを作る
-		HRESULT hr = device_->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
-			&vertexResourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-			IID_PPV_ARGS(&vertexResource));
-		assert(SUCCEEDED(hr));
-
 	}
 
 	//PSOの作成
@@ -203,11 +212,49 @@ struct ID3D12SetUp
 		inputLayoutDesc.NumElements = _countof(inputElementDescs);
 	}
 
+	//BufferResource(example: VertexBuffer,constantbuffer)を作る関数
+	ID3D12Resource* CreateBufferResource(ID3D12Device* device_, size_t sizeInByte_)
+	{
+		ID3D12Resource* ret_resource;
+		//頂点リソースのヒープ設定
+		//upLoadHEapを使う
+		D3D12_HEAP_PROPERTIES uploadHeapProperties{};
+		uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+		//頂点リソースの設定
+		D3D12_RESOURCE_DESC resourceDesc{};
+		//バッファリソース。テクスチャの場合はまた別の設定をする
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		//リソースのサイズ。今回はVecter4を4頂点分
+		resourceDesc.Width = sizeInByte_;
+		//バッファの場合はこれらを1にする決まり
+		resourceDesc.Height = 1;
+		resourceDesc.DepthOrArraySize = 1;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.SampleDesc.Count = 1;
+		//決まり2
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		//実際に頂点リソースを作る
+		HRESULT hr = device_->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE,
+			&resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+			IID_PPV_ARGS(&ret_resource));
+		assert(SUCCEEDED(hr));
+
+		return ret_resource;
+	}
+
+
+
 	//RootSignatureの作成
 	void MakeRootSignature(ID3D12Device* device_)
 	{
+		//descriptionRootSIgnature.Flags =
+		//	D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	
+		//pixcelShaderで読むConstantBufferのBind情報を追加する
 		descriptionRootSIgnature.Flags =
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		SetRootPara();
+
 		//シリアライズしてバイナリにする
 		HRESULT hr = D3D12SerializeRootSignature(
 			&descriptionRootSIgnature,
@@ -333,6 +380,7 @@ struct ID3D12SetUp
 		commandAllocator->Release();
 		commandQueue->Release();
 		vertexResource->Release();
+		materialResource->Release();
 		graghicsPipelineState->Release();
 		signatureBlob->Release();
 		if(errorBlob) errorBlob->Release();
