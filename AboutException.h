@@ -6,7 +6,7 @@
 #pragma comment(lib,"Dbghelp.lib")
 
 //例外登録関数
-static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
+inline static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 {
 	//時刻を取得して、時刻を名前に入れたファイルを作成
 	SYSTEMTIME time;

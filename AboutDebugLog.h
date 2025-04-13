@@ -8,7 +8,7 @@
 #include <strsafe.h>
 
 
-std::wstring ConvertString(const std::string& str) {
+inline std::wstring ConvertString(const std::string& str) {
 	if (str.empty()) {
 		return std::wstring();
 	}
@@ -22,7 +22,7 @@ std::wstring ConvertString(const std::string& str) {
 	return result;
 }
 
-std::string ConvertString(const std::wstring& str) {
+inline std::string ConvertString(const std::wstring& str) {
 	if (str.empty()) {
 		return std::string();
 	}
@@ -36,7 +36,7 @@ std::string ConvertString(const std::wstring& str) {
 	return result;
 }
 
-std::ofstream DebugLogInitialize()
+inline std::ofstream DebugLogInitialize()
 {
 	//現在時刻を取得
 	std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
@@ -55,12 +55,12 @@ std::ofstream DebugLogInitialize()
 	return logStream;	//ファイルそのものてきな
 }
 
-void Log(std::string const& str_)
+inline void Log(std::string const& str_)
 {
 	OutputDebugStringA(str_.c_str());
 }
 
-void Log(std::ostream& os, std::string const& message)
+inline void Log(std::ostream& os, std::string const& message)
 {
 	os << message << std::endl;
 	OutputDebugStringA(message.c_str());

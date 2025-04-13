@@ -3,10 +3,11 @@
 #include <cstdint>
 #include "AboutDebugLog.h"
 #include "AboutException.h"
+#include <cassert>
 
 
 //ウィンドウプロシージャ
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,
+inline LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,
 	WPARAM wparam, LPARAM lparam)
 {
 	//メッセージに応じてゲーム固有の処理を行う
@@ -24,17 +25,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-struct MySetUp
+struct WindowSetUp
 {
 	//デバッグログ格納用
-	std::ofstream debugLog;
+	inline static std::ofstream debugLog;
 	//クライアントの領域サイズ
 	int32_t kClientWidth;
 	int32_t kClientHeight;
 	//ウィンドウハンドル
 	HWND hwnd;
 
-	void InitializeWindowAndSome(int32_t kWindowWidth_, int32_t kWindowHeight_)
+	void SetWindowAndSome(int32_t kWindowWidth_, int32_t kWindowHeight_)
 	{
 		WNDCLASS wc{};
 		//ウィンドウプロシージャ(複数の処理を一つにまとめたもの)
