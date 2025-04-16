@@ -1,7 +1,6 @@
 #pragma once
 
 #include <dxgidebug.h>
-#pragma comment(lib,"dxguid.lib")
 #include "AboutWindow.h"
 
 struct FenceSetUp

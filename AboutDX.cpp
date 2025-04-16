@@ -1,5 +1,11 @@
 #include "AboutDX.h"
 
+#pragma comment(lib,"dxcompiler.lib")
+#pragma comment(lib,"d3d12.lib")
+#pragma comment(lib,"dxgi.lib")
+#pragma comment(lib,"dxguid.lib")
+#pragma comment(lib,"Dbghelp.lib")
+
 
 void MyDX::Initialize()
 {
@@ -34,7 +40,10 @@ void MyDX::Initialize()
 	//SRV用のヒープでディスクリプタの数は128。SRVはShader内で触るもなので,ShaderVisibleはtrue
 	iD3D12SetUp.srvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
 		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
-	
+	//DSV用のディスクリプタヒープ(Shader内で見るものではない)
+	iD3D12SetUp.dsvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
+		D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+
 	//SwapChainResourceからResourceを引っ張ってくる
 	iD3D12SetUp.PullSwapChainResource(deviceSetUp.device);
 	//RTVの設定
@@ -59,20 +68,14 @@ void MyDX::Initialize()
 	//DXの行列の設定
 	iD3D12SetUp.SetDXMatrix(windowSetUp.kClientWidth, windowSetUp.kClientHeight);
 	//VertexResourceの生成
-	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 3);
+	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 6);
+	
 	//materilalResourceの生成
 	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vec4<float>));
+	
 	//vpvResourceの生成
 	iD3D12SetUp.wvpResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Mat4));
-	//VBV(vertexBufferView)の作成
-	iD3D12SetUp.MakeVBV();
-	//頂点リソースにデータを書き込む
-	iD3D12SetUp.OverrideVertexData();
-	//マテリアルリソースにデータを書き込む
-	iD3D12SetUp.OverrideMaterialData();
-	//vpvResourceにデータを書き込む
-	iD3D12SetUp.OverrideWVPData();
-
+	
 	//Textureを読み込んで転送する
 	DirectX::ScratchImage mipImages = LoadTexture("Resource/TestImage/uvChecker.png");
 	dxTexSetUp.metaData = mipImages.GetMetadata();
@@ -84,6 +87,37 @@ void MyDX::Initialize()
 	iD3D12SetUp.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	iD3D12SetUp.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	iD3D12SetUp.srvDesc.Texture2D.MipLevels = UINT(dxTexSetUp.metaData.mipLevels);
+
+	//depthStencilresourceの作成
+	iD3D12SetUp.depthStencilTextureResource = iD3D12SetUp.CreateDepthStencilTextureResource(
+		deviceSetUp.device, windowSetUp.kClientWidth, windowSetUp.kClientHeight);
+
+	//VBV(vertexBufferView)の設定
+	iD3D12SetUp.SetVBV();
+	//DSVDescの設定
+	iD3D12SetUp.SetDepthStencilViewDesc(deviceSetUp.device);
+
+	//頂点リソースにデータを書き込む
+	iD3D12SetUp.OverrideVertexData();
+	//マテリアルリソースにデータを書き込む
+	iD3D12SetUp.OverrideMaterialData();
+	//vpvResourceにデータを書き込む
+	iD3D12SetUp.OverrideWVPData();
+
+
+
+	//ImGuiの初期化
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsClassic();
+	ImGui_ImplWin32_Init(windowSetUp.hwnd);
+	ImGui_ImplDX12_Init(
+		deviceSetUp.device,
+		iD3D12SetUp.swapChainDesc.BufferCount,
+		iD3D12SetUp.rtvDesc.Format,
+		iD3D12SetUp.srvDescriptorHeap,
+		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	//SRVを作成するDescriptorHeapの場所を決める
 	iD3D12SetUp.textureSrvHandleCPU =
@@ -101,20 +135,6 @@ void MyDX::Initialize()
 	deviceSetUp.device->CreateShaderResourceView(dxTexSetUp.textureResource, &iD3D12SetUp.srvDesc,
 		iD3D12SetUp.textureSrvHandleCPU);
 	
-	//ImGuiの初期化
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGui::StyleColorsClassic();
-	ImGui_ImplWin32_Init(windowSetUp.hwnd);
-	ImGui_ImplDX12_Init(
-		deviceSetUp.device,
-		iD3D12SetUp.swapChainDesc.BufferCount,
-		iD3D12SetUp.rtvDesc.Format,
-		iD3D12SetUp.srvDescriptorHeap,
-		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
-
 
 }
 void MyDX::Update()
@@ -144,9 +164,13 @@ void MyDX::Update()
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	//TransitionBarrierを張る
 	iD3D12SetUp.commandList->ResourceBarrier(1, &barrier);
-	//描画先のRTVを設定する
-	iD3D12SetUp.commandList->OMSetRenderTargets(1, &iD3D12SetUp.rtvHandles[backBufferIndex],
-		false, nullptr);
+	//描画先のRTV、DSVを設定する
+	iD3D12SetUp.dsvHandle = iD3D12SetUp.dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	iD3D12SetUp.commandList->OMSetRenderTargets(1, &iD3D12SetUp.rtvHandles[backBufferIndex], false, &iD3D12SetUp.dsvHandle);
+
+	//指定した深度で画面クリアする
+	iD3D12SetUp.commandList->ClearDepthStencilView(iD3D12SetUp.dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
 	//指定した色で画面全体をクリアする
 	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };
 	
@@ -177,7 +201,7 @@ void MyDX::Update()
 	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureSrvHandleGPU);
 
 	//描画(DrawCall)。3頂点で一つのインスタンス
-	iD3D12SetUp.commandList->DrawInstanced(3, 1, 0, 0);
+	iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);
 	
 
 

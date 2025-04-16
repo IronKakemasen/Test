@@ -3,7 +3,6 @@
 #include <strsafe.h>
 #include <Windows.h>
 #include <dbghelp.h>
-#pragma comment(lib,"Dbghelp.lib")
 
 //例外登録関数
 inline static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)

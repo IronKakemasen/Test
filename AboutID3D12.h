@@ -2,7 +2,6 @@
 
 #include "AboutWindow.h"
 #include <dxcapi.h>
-#pragma comment(lib,"dxcompiler.lib")
 #include "VecAndMat.h"
 #include "External/DirectXTex/DirectXTex.h"
 
@@ -89,9 +88,18 @@ struct ID3D12SetUp
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = {};
 
 	D3D12_RESOURCE_DESC resourceDesc{};
-	D3D12_HEAP_PROPERTIES heapProperties{};
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+
+	//DepthStencilTextureResource
+	ID3D12Resource* depthStencilTextureResource;
+	ID3D12DescriptorHeap* dsvDescriptorHeap;
+	D3D12_CLEAR_VALUE depthClearValue{};
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
+
+
 
 	Vec4<float>* materialData = nullptr;
 	VertexData* vertexData = nullptr;
@@ -133,6 +141,65 @@ struct ID3D12SetUp
 		}
 	}
 
+	//DepthStencilViewDesc(DSV)の設定
+	void SetDepthStencilViewDesc(ID3D12Device* device_)
+	{
+		//format。基本的にはリソースに合わせる
+		dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		//2DTexture
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		//DSVHeapの先頭にDSVを作る
+		device_->CreateDepthStencilView(depthStencilTextureResource, &dsvDesc,
+			dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	}
+
+	//DepthStencilを生成する
+	ID3D12Resource* CreateDepthStencilTextureResource(ID3D12Device* device_, int32_t width_, int32_t height_)
+	{
+		//生成するResourceの設定
+		//テクスチャのサイズ
+		resourceDesc.Width = width_;
+		resourceDesc.Height = height_;
+		//mipmapの数
+		resourceDesc.MipLevels = 1;
+		//奥行or配列Textureの配列数
+		resourceDesc.DepthOrArraySize = 1;
+		//depthstencilとして利用可能なフォーマット
+		resourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		//サンプリングカウント1固定
+		resourceDesc.SampleDesc.Count = 1;
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		//DepthStencilとして使う通知
+		resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+		//利用するHeapの設定
+		//VRAM上に作る
+		D3D12_HEAP_PROPERTIES heapProperties{};
+		heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+		//深度値クリア設定
+		//最大値（1.0）でクリア
+		depthClearValue.DepthStencil.Depth = 1.0f;
+		//フォーマット。resourceと合わせる
+		depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+		//Resourceの生成
+		ID3D12Resource* ret_resource = nullptr;
+		HRESULT hr = device_->CreateCommittedResource
+		(
+			&heapProperties,					//Heapの設定
+			D3D12_HEAP_FLAG_NONE,				//Heapの特殊な設定：特になし
+			&resourceDesc,						//resourceの設定
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,	//深度値を書き込む状態にしておく
+			&depthClearValue,					//Clear最適値
+			IID_PPV_ARGS(&ret_resource)			//作成するリソースポインタへのポインタ
+		);
+
+		assert(SUCCEEDED(hr));
+
+		return ret_resource;
+	}
+
 	//読み込んだTextureの情報をもとにTextureResourceを作る関数
 	ID3D12Resource* CreateTextureResource(ID3D12Device* device_, DirectX::TexMetadata& metaData_)
 	{
@@ -154,6 +221,7 @@ struct ID3D12SetUp
 
 		//[ 利用するHeapの設定 ]
 		//細かい設定を行う
+		D3D12_HEAP_PROPERTIES heapProperties{};
 		heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
 		//WriteBackポロシーでCPUアクセス可能
 		heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
@@ -275,15 +343,25 @@ struct ID3D12SetUp
 		vertexData[2].position = { 0.5f,-0.5f,0.0f,1.0f };
 		vertexData[2].texcoord = { 1.0f,1.0f };
 
+		//左下
+		vertexData[3].position = { -0.5f,-0.5f,0.5f,1.0f };
+		vertexData[3].texcoord = { 0.0f,1.0f };
+		//上
+		vertexData[4].position = { 0.0f,0.0f,0.0f,1.0f };
+		vertexData[4].texcoord = { 0.5f,0.0f };
+		//右下
+		vertexData[5].position = { 0.5f,-0.5f,-0.5f,1.0f };
+		vertexData[5].texcoord = { 1.0f,1.0f };
+
 	}
 
 	//VBV(vertexBufferView)の作成
-	void MakeVBV()
+	void SetVBV()
 	{
 		//リソースの先頭アドレスから使う
 		vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
-		//使用する頂点のサイズは3つ
-		vertexBufferView.SizeInBytes = sizeof(VertexData) * 3;
+		//使用する頂点のサイズ
+		vertexBufferView.SizeInBytes = sizeof(VertexData) * 6;
 		//1頂点当たりのサイズ
 		vertexBufferView.StrideInBytes = sizeof(VertexData);
 	}
@@ -319,6 +397,17 @@ struct ID3D12SetUp
 		//どのようにして色を打ち込むかの設定
 		graghicsPipeLineStatedesc.SampleDesc.Count = 1;
 		graghicsPipeLineStatedesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+		
+		//DepthStencilStateの設定
+		//depthの機能を有効化する
+		depthStencilDesc.DepthEnable = true;
+		//書き込みする
+		depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+		//比較関数はLessEqual。つかり近ければ描画される
+		depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+		graghicsPipeLineStatedesc.DepthStencilState = depthStencilDesc;
+		graghicsPipeLineStatedesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
 		//実際に生成
 		HRESULT hr = device_->CreateGraphicsPipelineState(&graghicsPipeLineStatedesc,
 			IID_PPV_ARGS(&graghicsPipelineState));
@@ -543,6 +632,9 @@ struct ID3D12SetUp
 		if(errorBlob) errorBlob->Release();
 		rootSignature->Release();
 		wvpResource->Release();
+		depthStencilTextureResource->Release();
+		dsvDescriptorHeap->Release();
+
 	}
 
 };

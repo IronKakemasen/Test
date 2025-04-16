@@ -2,7 +2,6 @@
 
 #include "AboutWindow.h"
 #include <dxcapi.h>
-#pragma comment(lib,"dxcompiler.lib")
 
 
 struct ShaderCompileSetUp

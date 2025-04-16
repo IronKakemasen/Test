@@ -12,11 +12,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	MyDX myDx;
 	myDx.Initialize();
 
-	Camera camera({ 0.0f,0.0f,-100,1.0f });
+	Camera camera({ 0.0f,0.0f,0.0f,1.0f });
 
 	Transform trans;
 	trans.scale = { 1.0f,1.0f,1.0f,1.0f };
-	trans.pos = { 0.0f,0.0f,0,1.0f };
+	trans.pos = { 0.0f,0.0f,1.0f,1.0f };
 
 	MSG msg{};
 	//ウィンドウのxが押されるまでループ
@@ -44,7 +44,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 			//W
 			trans.mat = Get_SRTMat3D(trans.scale, trans.rotateTheta, trans.pos);
-			trans.rotateTheta.y += 1.0f;
+			trans.rotateTheta.y -= 0.5f;
 
 			//WVP
 			Mat4 newMat = trans.mat.Multiply(vpvmat);

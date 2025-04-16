@@ -232,7 +232,7 @@ public:
 	T z = 0;
 	T w = 1;
 
-	float magnitude = 0.0f;
+	//float magnitude = 0.0f;
 
 	//============Constractor==============
 	Vec4() {};
@@ -259,22 +259,20 @@ public:
 	}
 
 	//大きさをセット
-	void SetMagnitutde()
+	float GetMagnitutde()
 	{
-		magnitude = sqrtf(x * x + y * y + z * z);
+		return sqrtf(x * x + y * y + z * z);
 	}
 
 	//正規化ベクトルを返す
 	Vec4<T> GetNormalizedVec()
 	{
-		SetMagnitutde();
-
+		float mag = GetMagnitutde();
 		float inv_mag = 0;
 
-		if (magnitude != 0) inv_mag = 1.0f / magnitude;
+		if (mag != 0) inv_mag = 1.0f / mag;
 
 		Vec4<T> ret_normalizeVec = { x * inv_mag ,y * inv_mag,z * inv_mag,1.0f };
-		ret_normalizeVec.magnitude = magnitude;
 
 		return ret_normalizeVec;
 	}
