@@ -1,5 +1,6 @@
 #include "AboutDX.h"
 
+
 void MyDX::Initialize()
 {
 	//[ ウィンドウ、デバッグ、例外設定？の初期化 ]
@@ -25,12 +26,23 @@ void MyDX::Initialize()
 	//SwapChainの設定
 	iD3D12SetUp.SetSwapChain(windowSetUp.hwnd, windowSetUp.kClientWidth,
 		windowSetUp.kClientHeight, deviceSetUp.dxgiFactory);
-	//ディスクリプタヒープの作成
-	iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device);
+	
+
+	//RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので,ShaderVisibleはfalse
+	iD3D12SetUp.rtvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
+		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,2, false);
+	//SRV用のヒープでディスクリプタの数は128。SRVはShader内で触るもなので,ShaderVisibleはtrue
+	iD3D12SetUp.srvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
+		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+	
+	//SwapChainResourceからResourceを引っ張ってくる
+	iD3D12SetUp.PullSwapChainResource(deviceSetUp.device);
 	//RTVの設定
 	iD3D12SetUp.SetRTV(deviceSetUp.device);
 
 	//[ PSO ]
+	//DescriptorRangeの設定
+	iD3D12SetUp.SetShaderViewDescriptorRange();
 	//RootSignatureの作成
 	iD3D12SetUp.MakeRootSignature(deviceSetUp.device);
 	//InputLayoutの設定
@@ -47,19 +59,74 @@ void MyDX::Initialize()
 	//DXの行列の設定
 	iD3D12SetUp.SetDXMatrix(windowSetUp.kClientWidth, windowSetUp.kClientHeight);
 	//VertexResourceの生成
-	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vec4<float>) * 3);	
+	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 3);
 	//materilalResourceの生成
 	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vec4<float>));
+	//vpvResourceの生成
+	iD3D12SetUp.wvpResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Mat4));
 	//VBV(vertexBufferView)の作成
 	iD3D12SetUp.MakeVBV();
 	//頂点リソースにデータを書き込む
 	iD3D12SetUp.OverrideVertexData();
 	//マテリアルリソースにデータを書き込む
 	iD3D12SetUp.OverrideMaterialData();
+	//vpvResourceにデータを書き込む
+	iD3D12SetUp.OverrideWVPData();
+
+	//Textureを読み込んで転送する
+	DirectX::ScratchImage mipImages = LoadTexture("Resource/TestImage/uvChecker.png");
+	dxTexSetUp.metaData = mipImages.GetMetadata();
+	dxTexSetUp.textureResource = iD3D12SetUp.CreateTextureResource(deviceSetUp.device, dxTexSetUp.metaData);
+	iD3D12SetUp.UploadtextureData(dxTexSetUp.textureResource, mipImages);
+
+	//metaDataをもとにShaderReaourceViewDescの設定
+	iD3D12SetUp.srvDesc.Format = dxTexSetUp.metaData.format;
+	iD3D12SetUp.srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	iD3D12SetUp.srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	iD3D12SetUp.srvDesc.Texture2D.MipLevels = UINT(dxTexSetUp.metaData.mipLevels);
+
+	//SRVを作成するDescriptorHeapの場所を決める
+	iD3D12SetUp.textureSrvHandleCPU =
+		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	iD3D12SetUp.textureSrvHandleGPU =
+		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	
+	//先頭はImGuiが使っているのでその次を使う
+	iD3D12SetUp.textureSrvHandleCPU.ptr +=
+		deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	iD3D12SetUp.textureSrvHandleGPU.ptr +=
+		deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	
+	//SRVの作成
+	deviceSetUp.device->CreateShaderResourceView(dxTexSetUp.textureResource, &iD3D12SetUp.srvDesc,
+		iD3D12SetUp.textureSrvHandleCPU);
+	
+	//ImGuiの初期化
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsClassic();
+	ImGui_ImplWin32_Init(windowSetUp.hwnd);
+	ImGui_ImplDX12_Init(
+		deviceSetUp.device,
+		iD3D12SetUp.swapChainDesc.BufferCount,
+		iD3D12SetUp.rtvDesc.Format,
+		iD3D12SetUp.srvDescriptorHeap,
+		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
+		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+
 
 }
 void MyDX::Update()
 {
+	//Imguiにここからフレームが始まる旨を告げる
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::ShowDemoWindow();
+	ImGui::Render();
+
 	//これから書き込むバックバッファのインデックスを取得
 	UINT backBufferIndex = iD3D12SetUp.swapChain->GetCurrentBackBufferIndex();
 
@@ -77,38 +144,46 @@ void MyDX::Update()
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	//TransitionBarrierを張る
 	iD3D12SetUp.commandList->ResourceBarrier(1, &barrier);
-
 	//描画先のRTVを設定する
 	iD3D12SetUp.commandList->OMSetRenderTargets(1, &iD3D12SetUp.rtvHandles[backBufferIndex],
 		false, nullptr);
 	//指定した色で画面全体をクリアする
 	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };
 	
-	
-	
+
 
 
 
 	//<<<<<<<<<<<<<<<<<<<<<<<画面に書く>>>>>>>>>>>>>>>>>>>>>>>>>
 	iD3D12SetUp.commandList->ClearRenderTargetView(iD3D12SetUp.rtvHandles[backBufferIndex], clearColor, 0, nullptr);
+	////描画用のDescriptorHeapの設定
+	ID3D12DescriptorHeap* descriptorHeaps[] = { iD3D12SetUp.srvDescriptorHeap };
+	iD3D12SetUp.commandList->SetDescriptorHeaps(1, descriptorHeaps);
+
 	iD3D12SetUp.commandList->RSSetViewports(1, &iD3D12SetUp.viewPort);
 	iD3D12SetUp.commandList->RSSetScissorRects(1, &iD3D12SetUp.scissorRect);
 	//RootSignatureを設定、PSOに設定しているけど別途必要
 	iD3D12SetUp.commandList->SetGraphicsRootSignature(iD3D12SetUp.rootSignature);
+	iD3D12SetUp.commandList->SetPipelineState(iD3D12SetUp.graghicsPipelineState);
 	//VBV
 	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferView);
-	iD3D12SetUp.commandList->SetPipelineState(iD3D12SetUp.graghicsPipelineState);
 	//形状の設定。PSOに設定しているものと同じものを選択
 	iD3D12SetUp.commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//マテリアルのCバッファの場所を指定
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialResource->GetGPUVirtualAddress());
+	//wvp用Cバッファの場所を指定
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.wvpResource->GetGPUVirtualAddress());
+	//SRVのDescriptortableの先頭を設定。2はrootparameter[2]である
+	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureSrvHandleGPU);
+
 	//描画(DrawCall)。3頂点で一つのインスタンス
 	iD3D12SetUp.commandList->DrawInstanced(3, 1, 0, 0);
+	
 
 
 
 
-
-
-
+	
 
 
 
@@ -117,6 +192,10 @@ void MyDX::Update()
 	//RenderTarget->Prsent
 	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+
+	//実際のcommandListのImguiの描画コマンドを積む
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), iD3D12SetUp.commandList);
+
 	//TransitionBarrierを張る
 	iD3D12SetUp.commandList->ResourceBarrier(1, &barrier);
 
@@ -158,6 +237,8 @@ void MyDX::Update()
 
 void MyDX::Finalize()
 {
+	ImGuiFinalize();
+
 	//解放
 	fenceSetUp.Finalize();
 	iD3D12SetUp.Finalize();

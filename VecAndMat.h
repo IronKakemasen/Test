@@ -626,3 +626,19 @@ inline Mat4 Get_VPMat([[maybe_unused]] Vec4<float> cameraPos, Mat4 cameraMat)
 
 	return  ret_mat;
 }
+
+//PerspectDivide(必要？)
+inline Mat4 Get_PerSpectDivideMat(float w_)
+{
+	float const inv_w_ = 1.0f / w_;
+
+	Mat4 ret_mat
+	{
+		inv_w_,0.0f,0.0f,0.0f,
+		0.0f,inv_w_,0.0f,0.0f,
+		0.0f,0.0f,inv_w_,0.0f,
+		0.0f,0.0f,0.0f,1.0f,
+	};
+
+	return ret_mat;
+}

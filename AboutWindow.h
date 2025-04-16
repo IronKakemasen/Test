@@ -1,15 +1,22 @@
 #pragma once
 #include <Windows.h>
 #include <cstdint>
+#include <cassert>
 #include "AboutDebugLog.h"
 #include "AboutException.h"
-#include <cassert>
-
+#include "AboutImgui.h"
+#include "VertexData.h"
 
 //ウィンドウプロシージャ
 inline LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,
 	WPARAM wparam, LPARAM lparam)
 {
+	//ImGuiにメッセージを渡す
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam))
+	{
+		return true;
+	}
+
 	//メッセージに応じてゲーム固有の処理を行う
 	switch (msg)
 	{

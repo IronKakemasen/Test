@@ -5,11 +5,13 @@
 #include "AboutFence.h"
 #include "AboutID3D12.h"
 #include "AboutShaderCompile.h"
+#include "AboutDXTex.h"
+
 
 class MyDX
 {
 
-private:
+public:
 	//ウィンドウ、デバッグ、例外設定？の初期化
 	WindowSetUp windowSetUp;
 	//デバイス
@@ -20,9 +22,10 @@ private:
 	ID3D12SetUp iD3D12SetUp;
 	//シェーダー
 	ShaderCompileSetUp shaderSetUp;
+	//TextureResource,mipData
+	DirectXTextureSetUp dxTexSetUp;
 
 
-public:
 
 	void Initialize();
 	void Update();

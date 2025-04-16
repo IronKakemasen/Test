@@ -83,19 +83,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="External\imgui\imgui.cpp" />
+    <ClCompile Include="External\imgui\imgui_demo.cpp" />
+    <ClCompile Include="External\imgui\imgui_draw.cpp" />
+    <ClCompile Include="External\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="External\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="External\imgui\imgui_tables.cpp" />
+    <ClCompile Include="External\imgui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="AboutDX.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AboutDebugLog.h" />
     <ClInclude Include="AboutDX.h" />
+    <ClInclude Include="AboutDXTex.h" />
     <ClInclude Include="AboutException.h" />
     <ClInclude Include="AboutFence.h" />
     <ClInclude Include="AboutID3D12.h" />
+    <ClInclude Include="AboutImgui.h" />
     <ClInclude Include="AboutShaderCompile.h" />
     <ClInclude Include="AbouttDevice.h" />
     <ClInclude Include="AboutWindow.h" />
+    <ClInclude Include="BaseClass.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="External\imgui\imconfig.h" />
+    <ClInclude Include="External\imgui\imgui.h" />
+    <ClInclude Include="External\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="External\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="External\imgui\imgui_internal.h" />
+    <ClInclude Include="External\imgui\imstb_rectpack.h" />
+    <ClInclude Include="External\imgui\imstb_textedit.h" />
+    <ClInclude Include="External\imgui\imstb_truetype.h" />
     <ClInclude Include="GlobalVariable.h" />
+    <ClInclude Include="VertexData.h" />
     <ClInclude Include="VecAndMat.h" />
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +132,22 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="External\imgui\imgui.vcxproj" />
+    <None Include="External\imgui\imgui.vcxproj.filters" />
+    <None Include="Object3d.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="External\imgui\LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="External\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">
+      <Project>{371b9fa9-4c90-4ac6-a123-aced756d6c77}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resource\TestImage\uvChecker.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

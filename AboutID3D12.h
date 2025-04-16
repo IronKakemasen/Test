@@ -4,6 +4,8 @@
 #include <dxcapi.h>
 #pragma comment(lib,"dxcompiler.lib")
 #include "VecAndMat.h"
+#include "External/DirectXTex/DirectXTex.h"
+
 
 struct ID3D12SetUp
 {
@@ -20,11 +22,14 @@ struct ID3D12SetUp
 	//スワップチェーン
 	IDXGISwapChain4* swapChain = nullptr;
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
-	
-	//ディスクリプタヒープ
+
+	//ReadTargetViewのディスクリプタヒープ
 	ID3D12DescriptorHeap* rtvDescriptorHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC rtvDescriptorHeapDesc{};
 	
+	//ShadeResourceViewのディスクリプタヒープ
+	ID3D12DescriptorHeap* srvDescriptorHeap = nullptr;
+
 	//swapchainからのリソースを入れる箱
 	ID3D12Resource* swapChainResources[2] = { nullptr };
 	
@@ -41,11 +46,12 @@ struct ID3D12SetUp
 	ID3DBlob* signatureBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 	//複数設定できるので配列
-	D3D12_ROOT_PARAMETER rootParameters[1] = {};
-
+	D3D12_ROOT_PARAMETER rootParameters[3] = {};
+	//Shaderで扱うViewのDescriptorを設定するために使う
+	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
 
 	//InputLayout
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs[1] = {};
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[2] = {};
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
 
 	//BlendState
@@ -60,9 +66,12 @@ struct ID3D12SetUp
 
 	//VertexResource
 	ID3D12Resource* vertexResource = nullptr;
-
 	//MaterialResource
 	ID3D12Resource* materialResource = nullptr;
+	//WVP用のリソース(Matrix4x4 1つ分のサイズ)
+	ID3D12Resource* wvpResource;
+	//wvp行列のアドレス
+	Mat4* wvpData = nullptr;
 
 	//VBV
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
@@ -72,6 +81,117 @@ struct ID3D12SetUp
 	//シザー矩形
 	D3D12_RECT scissorRect{};
 	
+	//Samplerの設定
+	D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
+
+	//textureHandle
+	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = {};
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = {};
+
+	D3D12_RESOURCE_DESC resourceDesc{};
+	D3D12_HEAP_PROPERTIES heapProperties{};
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+
+	Vec4<float>* materialData = nullptr;
+	VertexData* vertexData = nullptr;
+
+	//DescriptorRangeの設定を行う
+	void SetShaderViewDescriptorRange ()
+	{
+		//0から始まる
+		descriptorRange[0].BaseShaderRegister = 0;
+		//数は1つ
+		descriptorRange[0].NumDescriptors = 1;
+		//SRVを使う
+		descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		//offsetを自動計算
+		descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	}
+
+
+	//textureデータを転送する関数
+	void UploadtextureData(ID3D12Resource* texture_, DirectX::ScratchImage const& mipImages)
+	{
+		//Meta情報を取得
+		DirectX::TexMetadata const& metaData = mipImages.GetMetadata();
+		//全MipMapについて
+		for (size_t mipLevel = 0; mipLevel < metaData.mipLevels; ++mipLevel)
+		{
+			//MipMapLevelを指定して各Imageを取得
+			DirectX::Image const* img = mipImages.GetImage(mipLevel, 0, 0);
+			HRESULT hr = texture_->WriteToSubresource(
+				UINT(mipLevel),			
+				nullptr,				//全領域へコピー
+				img->pixels,			//元データアドレス
+				UINT(img->rowPitch),	//１ラインサイズ
+				UINT(img->slicePitch)	//１枚サイズ
+			);
+
+			assert(SUCCEEDED(hr));
+
+		}
+	}
+
+	//読み込んだTextureの情報をもとにTextureResourceを作る関数
+	ID3D12Resource* CreateTextureResource(ID3D12Device* device_, DirectX::TexMetadata& metaData_)
+	{
+		//[ materialDataを元にResourceの設定 ]
+		//textureの幅
+		resourceDesc.Width = UINT(metaData_.width);
+		//textureの高さ
+		resourceDesc.Height = UINT(metaData_.height);
+		//mipmapの数
+		resourceDesc.MipLevels = UINT16(metaData_.mipLevels);
+		//奥行orTextureの配列数
+		resourceDesc.DepthOrArraySize = UINT16(metaData_.arraySize);
+		//Textureのformat
+		resourceDesc.Format = metaData_.format;
+		//サンプリングカウント。１固定
+		resourceDesc.SampleDesc.Count = 1;
+		//テクスチャの次元数。2
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metaData_.dimension);
+
+		//[ 利用するHeapの設定 ]
+		//細かい設定を行う
+		heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
+		//WriteBackポロシーでCPUアクセス可能
+		heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+		//プロセッサの近くに設置
+		heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+
+		//[ resourceを生成する ]
+		ID3D12Resource* resource = nullptr;
+		HRESULT hr = device_->CreateCommittedResource(
+			&heapProperties,					//Heapの設定
+			D3D12_HEAP_FLAG_NONE,				//Heapの特殊な設定、特になし
+			&resourceDesc,						//Resourceの設定
+			D3D12_RESOURCE_STATE_GENERIC_READ,	//初回のResoourceState。textureは読むだけ
+			nullptr,							//Clear最適値。使わないのでnullptr
+			IID_PPV_ARGS(&resource));			//作成するresourceへのポインタのポインタ
+
+		assert(SUCCEEDED(hr));
+
+		return resource;
+	}
+
+	//DescriptorHeapの作成関数
+	ID3D12DescriptorHeap* MakeDescriptorHeap(ID3D12Device* device_,
+		D3D12_DESCRIPTOR_HEAP_TYPE heapType_, UINT numDescriptors_, bool shaderVisible)
+	{
+		ID3D12DescriptorHeap* ret_descriptorHeap = nullptr;
+		D3D12_DESCRIPTOR_HEAP_DESC descriptorheapDesc{};
+		descriptorheapDesc.Type = heapType_;
+		descriptorheapDesc.NumDescriptors = numDescriptors_;
+		descriptorheapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		
+		HRESULT hr = device_->CreateDescriptorHeap(&descriptorheapDesc,
+			IID_PPV_ARGS(&ret_descriptorHeap));
+
+		assert(SUCCEEDED(hr));
+
+		return ret_descriptorHeap;
+	}
 
 	//ConstantBufferを1つ読むための設定（関数内部）
 	void SetRootPara()
@@ -79,15 +199,30 @@ struct ID3D12SetUp
 		//CBVを使う(b0のb)
 		rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 		//PixcelShaderで使う
-		rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 		//レジスタ番号0とバインド
 		rootParameters[0].Descriptor.ShaderRegister = 0;
+
+		rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+		//VertexShaderで使う
+		rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+		//レジスタ番号0とバインド
+		rootParameters[1].Descriptor.ShaderRegister = 0;
+
+		//Descriptortableを使う
+		rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		//pixcelShaderを使う
+		rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		//tableの中身の配列を指定
+		rootParameters[2].DescriptorTable.pDescriptorRanges = descriptorRange;
+		//tableで利用する
+		rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
+
 		//ルートパラメータ配列へのポインタ
 		descriptionRootSIgnature.pParameters = rootParameters;
 		//配列の長さ
 		descriptionRootSIgnature.NumParameters = _countof(rootParameters);
 	}
-
 
 	//DXの行列の設定
 	void SetDXMatrix(int32_t kClientWidth_, int32_t kClientHeight_)
@@ -106,34 +241,41 @@ struct ID3D12SetUp
 		scissorRect.top = 0;
 	}
 
+	//wvpリソースにデータを書き込む
+	void OverrideWVPData()
+	{
+		wvpResource->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
+		//単位行列を書き込んでおく
+		Mat4 tmp;
+		*wvpData = tmp;
+	}
+
+
 	//マテリアルリソースにデータを書き込む
 	void OverrideMaterialData()
 	{
-		Vec4<float>* materialData = nullptr;
-
 		//書き込むためのアドレスを取得
 		materialResource->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 		//色
-		*materialData = { 1.0f,0.0f,0.0f,1.0f };
-
+		*materialData = { 1.0f,1.0f,1.0f,1.0f };
 	}
 
 	//頂点リソースにデータを書き込む
 	void OverrideVertexData()
 	{
-		Vec4<float>* vertexData = nullptr;
-
 		//書き込むためのアドレスを取得
 		vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
 		//左下
-		vertexData[0] = {-0.5f,-0.5f,0.0f,1.0f};
+		vertexData[0].position = { -0.5f,-0.5f,0.0f,1.0f };
+		vertexData[0].texcoord = { 0.0f,1.0f };
 		//上
-		vertexData[1] = { 0.0f,0.5f,0.0f,1.0f };
+		vertexData[1].position = { 0.0f,0.5f,0.0f,1.0f };
+		vertexData[1].texcoord = { 0.5f,0.0f };
 		//右下
-		vertexData[2] = { 0.5f,-0.5f,0.0f,1.0f };
+		vertexData[2].position = { 0.5f,-0.5f,0.0f,1.0f };
+		vertexData[2].texcoord = { 1.0f,1.0f };
 
 	}
-
 
 	//VBV(vertexBufferView)の作成
 	void MakeVBV()
@@ -141,9 +283,9 @@ struct ID3D12SetUp
 		//リソースの先頭アドレスから使う
 		vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
 		//使用する頂点のサイズは3つ
-		vertexBufferView.SizeInBytes = sizeof(Vec4<float>) * 3;
+		vertexBufferView.SizeInBytes = sizeof(VertexData) * 3;
 		//1頂点当たりのサイズ
-		vertexBufferView.StrideInBytes = sizeof(Vec4<float>);
+		vertexBufferView.StrideInBytes = sizeof(VertexData);
 	}
 
 	//PSOの作成
@@ -208,6 +350,12 @@ struct ID3D12SetUp
 		inputElementDescs[0].SemanticIndex = 0;
 		inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 		inputElementDescs[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+		
+		inputElementDescs[1].SemanticName = "TEXCOORD";
+		inputElementDescs[1].SemanticIndex = 0;
+		inputElementDescs[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+		inputElementDescs[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+
 		inputLayoutDesc.pInputElementDescs = inputElementDescs;
 		inputLayoutDesc.NumElements = _countof(inputElementDescs);
 	}
@@ -224,7 +372,7 @@ struct ID3D12SetUp
 		D3D12_RESOURCE_DESC resourceDesc{};
 		//バッファリソース。テクスチャの場合はまた別の設定をする
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-		//リソースのサイズ。今回はVecter4を4頂点分
+		//リソースのサイズ。
 		resourceDesc.Width = sizeInByte_;
 		//バッファの場合はこれらを1にする決まり
 		resourceDesc.Height = 1;
@@ -246,13 +394,29 @@ struct ID3D12SetUp
 
 	//RootSignatureの作成
 	void MakeRootSignature(ID3D12Device* device_)
-	{
-		//descriptionRootSIgnature.Flags =
-		//	D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-	
+	{	
+		//バイリニアフィルター
+		staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		//0～1の範囲外をリピート
+		staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		//比較しない
+		staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+		//ありったけのmipMapを使う
+		staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;
+		//レジスタ番号0を使う
+		staticSamplers[0].ShaderRegister = 0;
+		//PixcelShaderで使う
+		staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		descriptionRootSIgnature.pStaticSamplers = staticSamplers;
+		descriptionRootSIgnature.NumStaticSamplers = _countof(staticSamplers);
+		
 		//pixcelShaderで読むConstantBufferのBind情報を追加する
 		descriptionRootSIgnature.Flags =
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	
+		//RootParameter
 		SetRootPara();
 
 		//シリアライズしてバイナリにする
@@ -265,8 +429,7 @@ struct ID3D12SetUp
 			assert(false);
 		}
 
-		//バイナリをもとに作成
-		rootSignature = nullptr;
+		//バイナリをもとにrootSignatureを作成
 		hr = device_->CreateRootSignature(0,
 			signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(),
 			IID_PPV_ARGS(&rootSignature));
@@ -331,19 +494,12 @@ struct ID3D12SetUp
 	}
 
 	//ディスクリプタヒープの作成
-	void MakeDescriptorHeap(ID3D12Device* device_)
+	void PullSwapChainResource(ID3D12Device* device_)
 	{
-		//レンダーターゲットビュー用
-		rtvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		//ダブルバッファ用に2つ
-		rtvDescriptorHeapDesc.NumDescriptors = 2;
-		HRESULT hr = device_->CreateDescriptorHeap(&rtvDescriptorHeapDesc, IID_PPV_ARGS(&rtvDescriptorHeap));
-		//生成失敗
-		assert(SUCCEEDED(hr));
-		Log(WindowSetUp::debugLog, "Complete create DescriptorHeap\n");
+		Log(WindowSetUp::debugLog, "Complete create rtvDescriptorHeap\n");
 
 		//SwapChainからResourceを引っ張ってくる
-		hr = swapChain->GetBuffer(0, IID_PPV_ARGS(&swapChainResources[0]));
+		HRESULT hr = swapChain->GetBuffer(0, IID_PPV_ARGS(&swapChainResources[0]));
 		//生成失敗
 		assert(SUCCEEDED(hr));
 		hr = swapChain->GetBuffer(1, IID_PPV_ARGS(&swapChainResources[1]));
@@ -373,6 +529,7 @@ struct ID3D12SetUp
 	void Finalize()
 	{
 		rtvDescriptorHeap->Release();
+		srvDescriptorHeap->Release();
 		swapChainResources[0]->Release();
 		swapChainResources[1]->Release();
 		swapChain->Release();
@@ -385,6 +542,7 @@ struct ID3D12SetUp
 		signatureBlob->Release();
 		if(errorBlob) errorBlob->Release();
 		rootSignature->Release();
+		wvpResource->Release();
 	}
 
 };
