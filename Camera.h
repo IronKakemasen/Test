@@ -13,7 +13,7 @@ public:
 	//Constructor
 	Camera() {};
 
-	Camera(Vec4<float> pos_)
+	Camera(Vector4<float> pos_)
 	{
 		trans.pos = pos_;
 		trans.rotateTheta.x = 180.0f / 12.0f;
@@ -22,8 +22,8 @@ public:
 	//Destructor
 	~Camera() {};
 
-	Mat4 Get_MyMat() { return trans.mat; };
-	Vec4<float> Get_MyPos() { return trans.pos; };
+	Matrix4 Get_MyMat() { return trans.mat; };
+	Vector4<float> Get_MyPos() { return trans.pos; };
 
 };
 

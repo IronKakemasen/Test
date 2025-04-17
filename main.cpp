@@ -16,7 +16,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	Transform trans;
 	trans.scale = { 1.0f,1.0f,1.0f,1.0f };
-	trans.pos = { 0.0f,0.0f,1.0f,1.0f };
+	trans.pos = { 4.0f,0.0f,5,1.0f };
+
+	Transform trans2;
+	trans2.scale = { 1.0f,1.0f,1.0f,1.0f };
+	trans2.pos = { 0.0f,0.0f,1.0f,1.0f };
+
+
 
 	MSG msg{};
 	//ウィンドウのxが押されるまでループ
@@ -40,16 +46,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			camera.trans.mat = Get_SRTMat3D(camera.trans.scale, camera.trans.rotateTheta, 
 				camera.trans.pos);
 			//VP
-			Mat4 vpvmat = Get_VPMat(camera.trans.pos, camera.trans.mat);
+			Matrix4 vpvmat = Get_VPMat(camera.trans.pos, camera.trans.mat);
 
 			//W
 			trans.mat = Get_SRTMat3D(trans.scale, trans.rotateTheta, trans.pos);
 			trans.rotateTheta.y -= 0.5f;
 
 			//WVP
-			Mat4 newMat = trans.mat.Multiply(vpvmat);
+			Matrix4 newMat = trans.mat.Multiply(vpvmat);
 			
 			*myDx.iD3D12SetUp.wvpData = newMat;
+
+
+
+
+			trans2.mat = Get_SRTMat3D(trans2.scale, trans2.rotateTheta, trans2.pos);
+			//カメラ行列2
+			Matrix4 viewMatrixSprite;
+			Matrix4 projectionMat = Get_Orthographic3D(0.0f, 1280.0f, 0.0f, 720.0f, 0.0f, 100.0f);
+			Matrix4 vpMat2 = viewMatrixSprite.Multiply(projectionMat);
+			Matrix4 wvpMat2 = trans2.mat.Multiply(vpMat2);
+
+			*myDx.iD3D12SetUp.transformationMatrixSpriteData = wvpMat2;
+
+
+
 
 
 		}

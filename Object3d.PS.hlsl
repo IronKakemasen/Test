@@ -24,7 +24,8 @@ PixcelShaderOutput main(VertexShaderOutput input)
 	float32_t4 textureColor = gTexture.Sample(gSampler,input.texcoord);
 
 	PixcelShaderOutput output;
-	output.color = gMaterial.color * textureColor;
+    output.color = gMaterial.color * textureColor;
+	
 	
 	return output;
 

@@ -6,7 +6,7 @@
 //□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
 //Matrix4x4　　　　 　　　　　　　　　　　　　　　　　　　　□
 //□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
-class Mat4
+class Matrix4
 {
 
 public:
@@ -19,7 +19,7 @@ public:
 		{0.0f,0.0f,0.0f,1.0f},
 	};
 
-	Mat4 operator+=(Mat4 other)
+	Matrix4 operator+=(Matrix4 other)
 	{
 		for (int i = 0; i < 4; ++i)
 		{
@@ -32,7 +32,7 @@ public:
 		return *this;
 	}
 
-	Mat4 operator-=(Mat4 other)
+	Matrix4 operator-=(Matrix4 other)
 	{
 		for (int i = 0; i < 4; ++i)
 		{
@@ -49,9 +49,9 @@ public:
 
 
 	//============Constructor==============
-	Mat4() {};
+	Matrix4() {};
 
-	Mat4(float zero_)
+	Matrix4(float zero_)
 	{
 		m[0][0] = 1.0f; m[0][1] = 0.0f; m[0][2] = 0.0f; m[0][3] = 0.0f;
 		m[1][0] = 0.0f; m[1][1] = 1.0f; m[1][2] = 0.0f; m[1][3] = 0.0f;
@@ -60,7 +60,7 @@ public:
 		zero_;
 	};
 
-	Mat4(float a0, float a1, float a2, float a3, float a4, float a5, float a6, float a7, float a8, float a9,
+	Matrix4(float a0, float a1, float a2, float a3, float a4, float a5, float a6, float a7, float a8, float a9,
 		float a10, float a11, float a12, float a13, float a14, float a15)
 	{
 		m[0][0] = a0; m[0][1] = a1; m[0][2] = a2; m[0][3] = a3;
@@ -72,9 +72,9 @@ public:
 	//=====================================
 
 	//▽▽▽▽▽▽▽▽▽▽▽▽▽▽マトリックス同士の積▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽
-	Mat4 Multiply(Mat4 const& other)
+	Matrix4 Multiply(Matrix4 const& other)
 	{
-		Mat4 ret_mat;
+		Matrix4 ret_mat;
 
 		ret_mat.m[0][0] = m[0][0] * other.m[0][0] + m[0][1] * other.m[1][0] +
 			m[0][2] * other.m[2][0] + m[0][3] * other.m[3][0];
@@ -155,9 +155,9 @@ public:
 	}//4x4行列の行列式を返す関数
 
 	//▽▽▽▽▽▽▽▽▽▽▽▽▽▽4x4行列の逆行列を取得▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽
-	Mat4 GetInversed()
+	Matrix4 GetInversed()
 	{
-		Mat4 ret_mat;
+		Matrix4 ret_mat;
 
 		const float a11 = m[0][0];
 		const float a12 = m[0][1];
@@ -222,7 +222,7 @@ public:
 //Vector4  　　　　 　　　　　　　　　　　　　　　　　　　　□
 //□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
 template<typename T>
-class Vec4
+class Vector4
 {
 
 public:
@@ -235,12 +235,12 @@ public:
 	//float magnitude = 0.0f;
 
 	//============Constractor==============
-	Vec4() {};
-	Vec4(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
-	Vec4(T entries[4]) : x(entries[0]), y(entries[1]), z(entries[2]), w(entries[3]) {}
+	Vector4() {};
+	Vector4(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
+	Vector4(T entries[4]) : x(entries[0]), y(entries[1]), z(entries[2]), w(entries[3]) {}
 	//=====================================
 
-	Vec4<T> operator+=(T const addNum)
+	Vector4<T> operator+=(T const addNum)
 	{
 		x += addNum;
 		y += addNum;
@@ -249,7 +249,7 @@ public:
 		return *this;
 	}
 
-	Vec4<T> operator=(T const num)
+	Vector4<T> operator=(T const num)
 	{
 		x = num;
 		y = num;
@@ -265,26 +265,26 @@ public:
 	}
 
 	//正規化ベクトルを返す
-	Vec4<T> GetNormalizedVec()
+	Vector4<T> GetNormalizedVec()
 	{
 		float mag = GetMagnitutde();
 		float inv_mag = 0;
 
 		if (mag != 0) inv_mag = 1.0f / mag;
 
-		Vec4<T> ret_normalizeVec = { x * inv_mag ,y * inv_mag,z * inv_mag,1.0f };
+		Vector4<T> ret_normalizeVec = { x * inv_mag ,y * inv_mag,z * inv_mag,1.0f };
 
 		return ret_normalizeVec;
 	}
 
 	//内積を計算して返す
-	float GetDotProductionResult(Vec4<T> src1_vec4, Vec4<T> src2_vec4)
+	float GetDotProductionResult(Vector4<T> src1_Vector4, Vector4<T> src2_Vector4)
 	{
 		float ret_cosTheta = 0.0f;
 
 		//正規化する
-		Vec4<T> normalized1 = src1_vec4.GetNormalizedVec();
-		Vec4<T> normalized2 = src2_vec4.GetNormalizedVec();
+		Vector4<T> normalized1 = src1_Vector4.GetNormalizedVec();
+		Vector4<T> normalized2 = src2_Vector4.GetNormalizedVec();
 		//cos(🍆角)
 		ret_cosTheta =
 			normalized1.x * normalized2.x +
@@ -295,49 +295,49 @@ public:
 	}
 
 	//差分単位ベクトルを返す
-	Vec4 GetNormalizedDiffVec4(Vec4<T> dst_pos, Vec4<T> my_pos)
+	Vector4 GetNormalizedDiffVector4(Vector4<T> dst_pos, Vector4<T> my_pos)
 	{
-		Vec4<T> diff;
+		Vector4<T> diff;
 
 		//差分を計算
 		diff = dst_pos - my_pos;
 		//大きさを計算
 		diff.SetMagnitutde();
-		Vec4<T> normalized_diff = diff.GetNormalizedVec();
+		Vector4<T> normalized_diff = diff.GetNormalizedVec();
 
 		return normalized_diff;
 	}
 
 	//マトリックスとベクタの積
-	Vec4<T> GetMultipliedByMat(Mat4 src_mat)
+	Vector4<T> GetMultipliedByMat(Matrix4 src_mat)
 	{
-		Vec4<T> ret_vec4;
+		Vector4<T> ret_Vector4;
 
-		ret_vec4.x = x * src_mat.m[0][0] + y * src_mat.m[1][0] +
+		ret_Vector4.x = x * src_mat.m[0][0] + y * src_mat.m[1][0] +
 			z * src_mat.m[2][0] + w * src_mat.m[3][0];
 
-		ret_vec4.y = x * src_mat.m[0][1] + y * src_mat.m[1][1] +
+		ret_Vector4.y = x * src_mat.m[0][1] + y * src_mat.m[1][1] +
 			z * src_mat.m[2][1] + w * src_mat.m[3][1];
 
-		ret_vec4.z = x * src_mat.m[0][2] + y * src_mat.m[1][2] +
+		ret_Vector4.z = x * src_mat.m[0][2] + y * src_mat.m[1][2] +
 			z * src_mat.m[2][2] + w * src_mat.m[3][2];
 
-		ret_vec4.w = x * src_mat.m[0][3] + y * src_mat.m[1][3] +
+		ret_Vector4.w = x * src_mat.m[0][3] + y * src_mat.m[1][3] +
 			z * src_mat.m[2][3] + w * src_mat.m[3][3];
 
-		return ret_vec4;
+		return ret_Vector4;
 	}
 
 	//クロス積を返す
-	Vec4<float> GetCross(Vec4<float> other)
+	Vector4<float> GetCross(Vector4<float> other)
 	{
-		Vec4<T> ret_vec4;
+		Vector4<T> ret_Vector4;
 
-		ret_vec4.x = y * other.z - z * other.y;
-		ret_vec4.y = z * other.x - x * other.z;
-		ret_vec4.z = x * other.y - y * other.x;
+		ret_Vector4.x = y * other.z - z * other.y;
+		ret_Vector4.y = z * other.x - x * other.z;
+		ret_Vector4.z = x * other.y - y * other.x;
 
-		return ret_vec4;
+		return ret_Vector4;
 	}
 
 };
@@ -345,32 +345,32 @@ public:
 //==================================Operand============================================================
 //↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓Operand↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 template<typename T>
-Vec4<T> operator+(Vec4<T> const& lVec, Vec4<T> const& rVec2)
+Vector4<T> operator+(Vector4<T> const& lVec, Vector4<T> const& rVec2)
 {
-	Vec4<T> ret_vec = { lVec.x + rVec2.x,lVec.y + rVec2.y ,lVec.z + rVec2.z ,1 };
+	Vector4<T> ret_vec = { lVec.x + rVec2.x,lVec.y + rVec2.y ,lVec.z + rVec2.z ,1 };
 
 	return ret_vec;
 }
 
 template<typename T>
-Vec4<T> operator-(Vec4<T> const& lVec, Vec4<T> const& rVec2)
+Vector4<T> operator-(Vector4<T> const& lVec, Vector4<T> const& rVec2)
 {
-	Vec4<T> ret_vec = { lVec.x - rVec2.x,lVec.y - rVec2.y ,lVec.z - rVec2.z ,1 };
+	Vector4<T> ret_vec = { lVec.x - rVec2.x,lVec.y - rVec2.y ,lVec.z - rVec2.z ,1 };
 
 	return ret_vec;
 }
 
 template<typename T>
-Vec4<T> operator*(Vec4<T> const& dst_vec, T const multipleNum)
+Vector4<T> operator*(Vector4<T> const& dst_vec, T const multipleNum)
 {
-	Vec4<T> ret_vec = { dst_vec.x * multipleNum,dst_vec.y * multipleNum ,dst_vec.z * multipleNum ,1 };
+	Vector4<T> ret_vec = { dst_vec.x * multipleNum,dst_vec.y * multipleNum ,dst_vec.z * multipleNum ,1 };
 
 	return ret_vec;
 }
 
-inline Mat4 operator*(Mat4 const& dst_mat, float multipleNum)
+inline Matrix4 operator*(Matrix4 const& dst_mat, float multipleNum)
 {
-	Mat4 ret_mat;
+	Matrix4 ret_mat;
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -389,25 +389,25 @@ inline Mat4 operator*(Mat4 const& dst_mat, float multipleNum)
 
 
 //▽▽▽▽▽▽▽▽▽▽▽▽▽▽SRT行列の作成・取得▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽
-inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateTheta_,
-	const Vec4<float>& translate_)
+inline Matrix4 Get_SRTMat3D(const Vector4<float>& scale_, const Vector4<float>& rotateTheta_,
+	const Vector4<float>& translate_)
 {
-	Mat4 ret_mat;
+	Matrix4 ret_mat;
 
 	//回転角をradianに変換
 	static float const degreeConverter = 3.141592653589f / 180.0f;
-	Vec4<float> rotateRad = rotateTheta_ * degreeConverter;
+	Vector4<float> rotateRad = rotateTheta_ * degreeConverter;
 
 	//3つの回転軸に対応した行列を作成
 	//角度を三角関数に代入して返すラムダ式
 	auto substituteRad = [](float rotateRad_) {
-		Vec4<float> ret_vec = { cosf(rotateRad_),sinf(rotateRad_),1.0f,1.0f };
+		Vector4<float> ret_vec = { cosf(rotateRad_),sinf(rotateRad_),1.0f,1.0f };
 		return ret_vec; };
 
 	//x軸
-	Vec4<float> circularFunc = substituteRad(rotateRad.x);
+	Vector4<float> circularFunc = substituteRad(rotateRad.x);
 
-	Mat4 rotateMatX(
+	Matrix4 rotateMatX(
 		1.0f, 0.0f, 0.0f, 0.0f,
 		0.0f, circularFunc.x, circularFunc.y, 0.0f,
 		0.0f, -circularFunc.y, circularFunc.x, 0.0f,
@@ -415,7 +415,7 @@ inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateThe
 
 	//y軸
 	circularFunc = substituteRad(rotateRad.y);
-	Mat4 rotateMatY =
+	Matrix4 rotateMatY =
 	{
 		circularFunc.x,0.0f,-circularFunc.y,0.0f,
 		0.0f,1.0f,0.0f,0.0f,
@@ -425,7 +425,7 @@ inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateThe
 
 	//z軸
 	circularFunc = substituteRad(rotateRad.z);
-	Mat4 rotateMatZ =
+	Matrix4 rotateMatZ =
 	{
 		circularFunc.x,circularFunc.y,0.0f,0.0f,
 		-circularFunc.y,circularFunc.x,0.0f,0.0f,
@@ -434,11 +434,11 @@ inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateThe
 	};
 
 	//3つの回転マトリックスを合成する
-	Mat4 concentratedRotateMat = rotateMatX.Multiply(rotateMatY.Multiply(rotateMatZ));
+	Matrix4 concentratedRotateMat = rotateMatX.Multiply(rotateMatY.Multiply(rotateMatZ));
 
 	//SRT行列の作成
 	//ScaleMatrix
-	Mat4 scaleMat =
+	Matrix4 scaleMat =
 	{
 		scale_.x,0.0f,0.0f,0.0f,
 		0.0f,scale_.y,0.0f,0.0f,
@@ -446,7 +446,7 @@ inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateThe
 		0.0f,0.0f,0.0f,1.0f
 	};
 	//TranslateMat
-	Mat4 translateMat =
+	Matrix4 translateMat =
 	{
 		1.0f,0.0f,0.0f,0.0f,
 		0.0f,1.0f,0.0f,0.0f,
@@ -464,24 +464,24 @@ inline Mat4 Get_SRTMat3D(const Vec4<float>& scale_, const Vec4<float>& rotateThe
 }//SRT行列の作成・取得
 
 //▽▽▽▽▽▽▽▽▽▽▽▽▽▽STR行列の作成・取得▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽▽
-inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementTheta_,
-	const Vec4<float>& translate_)
+inline Matrix4 Get_STRMat3D(const Vector4<float>& scale_, const Vector4<float>& movementTheta_,
+	const Vector4<float>& translate_)
 {
-	Mat4 ret_mat;
+	Matrix4 ret_mat;
 
 	//回転角をradianに変換
 	static float const degreeConverter = Torima::kPi / 180.0f;
-	Vec4<float> rotateRad = movementTheta_ * degreeConverter;
+	Vector4<float> rotateRad = movementTheta_ * degreeConverter;
 
 	//3つの回転軸に対応した行列を作成
 	//角度を三角関数に代入して返すラムダ式
 	auto substituteRad = [](float movementTheta_) {
-		Vec4<float> ret_vec = { cosf(movementTheta_),sinf(movementTheta_),1.0f,1.0f };
+		Vector4<float> ret_vec = { cosf(movementTheta_),sinf(movementTheta_),1.0f,1.0f };
 		return ret_vec; };
 
 	//x軸
-	Vec4<float> circularFunc = substituteRad(rotateRad.x);
-	Mat4 movementMatX =
+	Vector4<float> circularFunc = substituteRad(rotateRad.x);
+	Matrix4 movementMatX =
 	{
 		1.0f,0.0f,0.0f,0.0f,
 		0.0f,circularFunc.x,circularFunc.y,0.0f,
@@ -491,7 +491,7 @@ inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementT
 
 	//y軸
 	circularFunc = substituteRad(rotateRad.y);
-	Mat4 movementMatY =
+	Matrix4 movementMatY =
 	{
 		circularFunc.x,0.0f,-circularFunc.y,0.0f,
 		0.0f,1.0f,0.0f,0.0f,
@@ -501,7 +501,7 @@ inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementT
 
 	//z軸
 	circularFunc = substituteRad(rotateRad.z);
-	Mat4 movementMatZ =
+	Matrix4 movementMatZ =
 	{
 		circularFunc.x,circularFunc.y,0.0f,0.0f,
 		-circularFunc.y,circularFunc.x,0.0f,0.0f,
@@ -510,11 +510,11 @@ inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementT
 	};
 
 	//3つの回転マトリックスを合成する
-	Mat4 concentratedRotateMat = movementMatX.Multiply(movementMatY.Multiply(movementMatZ));
+	Matrix4 concentratedRotateMat = movementMatX.Multiply(movementMatY.Multiply(movementMatZ));
 
 	//SRT行列の作成
 	//ScaleMatrix
-	Mat4 scaleMat =
+	Matrix4 scaleMat =
 	{
 		scale_.x,0.0f,0.0f,0.0f,
 		0.0f,scale_.y,0.0f,0.0f,
@@ -522,7 +522,7 @@ inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementT
 		0.0f,0.0f,0.0f,1.0f
 	};
 	//TranslateMat
-	Mat4 translateMat =
+	Matrix4 translateMat =
 	{
 		1.0f,0.0f,0.0f,0.0f,
 		0.0f,1.0f,0.0f,0.0f,
@@ -541,7 +541,7 @@ inline Mat4 Get_STRMat3D(const Vec4<float>& scale_, const Vec4<float>& movementT
 
 
 //正射影行列3D
-inline Mat4 Get_Orthographic3D(
+inline Matrix4 Get_Orthographic3D(
 	const float l_, const float r_,
 	const float t_, const float b_,
 	const float zn_, const float zf_)
@@ -550,7 +550,7 @@ inline Mat4 Get_Orthographic3D(
 	const float inv_H{ 1.0f / (t_ - b_) };
 	const float inv_D{ 1.0f / (zf_ - zn_) };
 
-	return Mat4
+	return Matrix4
 	{
 		2.0f * inv_W, 0.0f, 0.0f, 0.0f,
 		0.0f, 2.0f * inv_H, 0.0f, 0.0f,
@@ -560,12 +560,12 @@ inline Mat4 Get_Orthographic3D(
 }
 
 //ビューポート変換3D
-static inline Mat4 Get_ViewportTransformation3D(
+static inline Matrix4 Get_ViewportTransformation3D(
 	const float left_ = 0.0f, const float top_ = 0.0f,
 	const float windowWidth_ = Torima::windowWidth, const float windowHeight_ = Torima::windowHeight,
 	const float minDepth_ = 0.0f, const float maxDepth_ = 1.0f)
 {
-	return Mat4
+	return Matrix4
 	{
 		windowWidth_ * 0.5f, 0.0f, 0.0f, 0.0f,
 		0.0f, -windowHeight_ * 0.5f, 0.0f, 0.0f,
@@ -575,12 +575,12 @@ static inline Mat4 Get_ViewportTransformation3D(
 }
 
 //透視投影行列
-inline Mat4 Get_PerspectiveFOV(float fovY_, float aspectRatio_, float nearClip_ = 0.1f, float farClip_ = 1000.0f)
+inline Matrix4 Get_PerspectiveFOV(float fovY_, float aspectRatio_, float nearClip_ = 0.1f, float farClip_ = 1000.0f)
 {
 	const float cotTheta{ 1.0f / tanf(fovY_ * 0.5f) };
 	const float inv_frustumHeight{ 1.0f / (farClip_ - nearClip_) };
 
-	return Mat4
+	return Matrix4
 	{
 		cotTheta / aspectRatio_ , 0.0f, 0.0f, 0.0f,
 		0.0f, cotTheta, 0.0f, 0.0f,
@@ -588,7 +588,7 @@ inline Mat4 Get_PerspectiveFOV(float fovY_, float aspectRatio_, float nearClip_ 
 		0.0f, 0.0f, -nearClip_ * farClip_ * inv_frustumHeight, 0.0f,
 	};
 
-	//return Mat4
+	//return Matrix4
 	//{
 	//	cotTheta / aspectRatio_ , 0.0f, 0.0f, 0.0f,
 	//	0.0f, cotTheta, 0.0f, 0.0f,
@@ -599,15 +599,15 @@ inline Mat4 Get_PerspectiveFOV(float fovY_, float aspectRatio_, float nearClip_ 
 }
 
 //VP行列
-inline Mat4 Get_VPMat([[maybe_unused]] Vec4<float> cameraPos, Mat4 cameraMat)
+inline Matrix4 Get_VPMat([[maybe_unused]] Vector4<float> cameraPos, Matrix4 cameraMat)
 {
-	Mat4 ret_mat;
+	Matrix4 ret_mat;
 
 	//ビュー行列作成
-	Mat4 viewMat = cameraMat.GetInversed();
+	Matrix4 viewMat = cameraMat.GetInversed();
 
 	//射影行列作成
-	Mat4 projectionMat;
+	Matrix4 projectionMat;
 
 	////平行投影
 	//projectionMat = Get_Orthographic3D(
@@ -625,18 +625,3 @@ inline Mat4 Get_VPMat([[maybe_unused]] Vec4<float> cameraPos, Mat4 cameraMat)
 	return  ret_mat;
 }
 
-//PerspectDivide(必要？)
-inline Mat4 Get_PerSpectDivideMat(float w_)
-{
-	float const inv_w_ = 1.0f / w_;
-
-	Mat4 ret_mat
-	{
-		inv_w_,0.0f,0.0f,0.0f,
-		0.0f,inv_w_,0.0f,0.0f,
-		0.0f,0.0f,inv_w_,0.0f,
-		0.0f,0.0f,0.0f,1.0f,
-	};
-
-	return ret_mat;
-}
