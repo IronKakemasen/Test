@@ -71,16 +71,18 @@ void MyDX::Initialize()
 	
 	//VertexResourceの生成
 	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * kNumVertex);
+	//vertexSpriteResourceの作成
+	iD3D12SetUp.vertexSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 6);
+
 	//materilalResourceの生成
 	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vector4<float>));
 	//materilalSpriteResourceの生成
 	iD3D12SetUp.materialSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Material));
+
 	//vpvResourceの生成
-	iD3D12SetUp.wvpResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Matrix4));
-	//vertexSpriteResourceの作成
-	iD3D12SetUp.vertexSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 6);
+	iD3D12SetUp.transformationMatrixResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(TransformationMatrix));
 	//transformationMatrixSpriteResourceの作成
-	iD3D12SetUp.transformationMatrixSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Matrix4));
+	iD3D12SetUp.transformationMatrixSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(TransformationMatrix));
 
 	//Textureを読み込んで転送する
 	dxTexSetUp.textureResourceDataList.emplace_back(dxTexSetUp.LoadTextureData("Resource/TestImage/uvChecker.png", deviceSetUp.device));
@@ -99,8 +101,6 @@ void MyDX::Initialize()
 		srvDescs.emplace_back(iD3D12SetUp.CreateSRVDesc((*itr).metaData.format, (*itr).metaData.mipLevels));
 
 	}
-
-
 
 	//depthStencilresourceの作成
 	iD3D12SetUp.depthStencilTextureResource = iD3D12SetUp.CreateDepthStencilTextureResource(
@@ -123,13 +123,12 @@ void MyDX::Initialize()
 	iD3D12SetUp.OverrideMaterialData();
 	//マテリアルスプライトリソースにデータを書き込む
 	iD3D12SetUp.OverrideMaterialSpriteData();
-	//vpvResourceにデータを書き込む
-	iD3D12SetUp.OverrideWVPData();
 	//スプライト頂点リソースにデータを書き込む
 	iD3D12SetUp.OverrideVertexSpriteData();
 	//スプライト用のMatrixリソースにデータを書き込む
-	iD3D12SetUp.OverrideMatrixSpriteData();
-
+	iD3D12SetUp.OverrideTransformationMatrixSpriteData();
+	//頂点用のMatrixリソースにデータを書き込む
+	iD3D12SetUp.OverrideTransformationMatrixData();
 
 	//ImGuiの初期化
 	IMGUI_CHECKVERSION();
@@ -229,7 +228,7 @@ void MyDX::Update()
 	//マテリアルのCバッファの場所を指定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialResource->GetGPUVirtualAddress());
 	//wvp用Cバッファの場所を指定
-	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.wvpResource->GetGPUVirtualAddress());
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixResource->GetGPUVirtualAddress());
 	//SRVのDescriptortableの先頭を設定。2はrootparameter[2]である
 	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2,iD3D12SetUp.textureHandles[1].textureSrvHandleGPU);
 	//描画(DrawCall)。3頂点で一つのインスタンス
@@ -239,9 +238,9 @@ void MyDX::Update()
 	//spriteの描画
 	//マテリアルのCバッファの場所を指定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialSpriteResource->GetGPUVirtualAddress());
-	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
 	//TransformationMatrixCBufferの場所を設定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixSpriteResource->GetGPUVirtualAddress());
+	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
 	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureHandles[0].textureSrvHandleGPU);
 	//描画
 	iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);

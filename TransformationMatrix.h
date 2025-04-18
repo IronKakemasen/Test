@@ -3,6 +3,6 @@
 
 struct TransformationMatrix
 {
-	Matrix4 worldMat;
-	Matrix4 wvpMat;
+	Matrix4 WVP;
+	Matrix4 World;
 };
