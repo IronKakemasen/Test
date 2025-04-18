@@ -1,6 +1,30 @@
 #include "AboutID3D12.h"
 
 
+
+D3D12_CPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_, 
+	uint32_t descriptorSize_)
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE ret_handleCPU = descrptorHeap_->GetCPUDescriptorHandleForHeapStart();
+	ret_handleCPU.ptr += descriptorSize_ * CPUDescriptorHandleIndex;
+
+	CPUDescriptorHandleIndex++;
+
+	return ret_handleCPU;
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetGPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_,
+	uint32_t descriptorSize_)
+{
+	D3D12_GPU_DESCRIPTOR_HANDLE ret_handleGPU = descrptorHeap_->GetGPUDescriptorHandleForHeapStart();
+	ret_handleGPU.ptr += descriptorSize_ * GPUDescriptorHandleIndex;
+
+	GPUDescriptorHandleIndex++;
+
+	return ret_handleGPU;
+}
+
+
 //スプライト用のMatrixリソースにデータを書き込む
 void ID3D12SetUp::OverrideMatrixSpriteData()
 {
@@ -131,50 +155,6 @@ ID3D12Resource* ID3D12SetUp::CreateDepthStencilTextureResource(ID3D12Device* dev
 	return ret_resource;
 }
 
-//読み込んだTextureの情報をもとにTextureResourceを作る関数
-ID3D12Resource* ID3D12SetUp::CreateTextureResource(ID3D12Device* device_, DirectX::TexMetadata& metaData_)
-{
-	D3D12_RESOURCE_DESC resourceDesc{};
-
-	//[ materialDataを元にResourceの設定 ]
-	//textureの幅
-	resourceDesc.Width = UINT(metaData_.width);
-	//textureの高さ
-	resourceDesc.Height = UINT(metaData_.height);
-	//mipmapの数
-	resourceDesc.MipLevels = UINT16(metaData_.mipLevels);
-	//奥行orTextureの配列数
-	resourceDesc.DepthOrArraySize = UINT16(metaData_.arraySize);
-	//Textureのformat
-	resourceDesc.Format = metaData_.format;
-	//サンプリングカウント。１固定
-	resourceDesc.SampleDesc.Count = 1;
-	//テクスチャの次元数。2
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metaData_.dimension);
-
-	//[ 利用するHeapの設定 ]
-	//細かい設定を行う
-	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-	////WriteBackポロシーでCPUアクセス可能
-	//heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	////プロセッサの近くに設置
-	//heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-
-	//[ resourceを生成する ]
-	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(
-		&heapProperties,					//Heapの設定
-		D3D12_HEAP_FLAG_NONE,				//Heapの特殊な設定、特になし
-		&resourceDesc,						//Resourceの設定
-		D3D12_RESOURCE_STATE_COPY_DEST,		//データ転送される設定
-		nullptr,							//Clear最適値。使わないのでnullptr
-		IID_PPV_ARGS(&resource));			//作成するresourceへのポインタのポインタ
-
-	assert(SUCCEEDED(hr));
-
-	return resource;
-}
 
 //DescriptorHeapの作成関数
 ID3D12DescriptorHeap* ID3D12SetUp::MakeDescriptorHeap(ID3D12Device* device_,
@@ -246,6 +226,17 @@ void ID3D12SetUp::OverrideWVPData()
 	Matrix4 tmp;
 	*wvpData = tmp;
 }
+
+//マテリアルスプライトリソースにデータを書き込む
+void ID3D12SetUp::OverrideMaterialSpriteData()
+{
+	//書き込むためのアドレスを取得
+	materialSpriteResource->Map(0, nullptr, reinterpret_cast<void**>(&materialResourceData));
+	//色
+	materialResourceData->color = { 1.0f,1.0f,1.0f,1.0f };
+	materialResourceData->enableLighting = false;
+}
+
 
 
 //マテリアルリソースにデータを書き込む
@@ -351,7 +342,13 @@ void ID3D12SetUp::OverrideVertexData()
 					1.0f - float((latIndex + 1) / kSubdivision)
 			};
 
+			for (int i = 0; i < 6; ++i)
+			{
+				vertexData[start + i].normal.x = vertexData[start + i].position.x;
+				vertexData[start + i].normal.y = vertexData[start + i].position.y;
+				vertexData[start + i].normal.z = vertexData[start + i].position.z;
 
+			}
 
 		}
 
@@ -422,7 +419,7 @@ void ID3D12SetUp::MakePSO(IDxcBlob* vertexShaderBlob_, IDxcBlob* pixcelShaderBlo
 	//RootSignature
 	graghicsPipeLineStatedesc.pRootSignature = rootSignature;
 	//InputLayOut
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs[2] = {};
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
 
 	inputElementDescs[0].SemanticName = "POSITION";
 	inputElementDescs[0].SemanticIndex = 0;
@@ -433,6 +430,11 @@ void ID3D12SetUp::MakePSO(IDxcBlob* vertexShaderBlob_, IDxcBlob* pixcelShaderBlo
 	inputElementDescs[1].SemanticIndex = 0;
 	inputElementDescs[1].Format = DXGI_FORMAT_R32G32_FLOAT;
 	inputElementDescs[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+
+	inputElementDescs[2].SemanticName = "NORMAL";
+	inputElementDescs[2].SemanticIndex = 0;
+	inputElementDescs[2].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	inputElementDescs[2].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
 	inputLayoutDesc.pInputElementDescs = inputElementDescs;
@@ -693,17 +695,19 @@ void ID3D12SetUp::Finalize()
 	commandList->Release();
 	commandAllocator->Release();
 	commandQueue->Release();
-	vertexResource->Release();
-	materialResource->Release();
 	graghicsPipelineState->Release();
 	signatureBlob->Release();
 	if (errorBlob) errorBlob->Release();
 	rootSignature->Release();
-	wvpResource->Release();
-	depthStencilTextureResource->Release();
 	dsvDescriptorHeap->Release();
+
+	depthStencilTextureResource->Release();
+	wvpResource->Release();
 	intermediateResource->Release();
 	vertexSpriteResource->Release();
 	transformationMatrixSpriteResource->Release();
+	materialSpriteResource->Release();
+	vertexResource->Release();
+	materialResource->Release();
 
 }

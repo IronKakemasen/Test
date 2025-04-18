@@ -5,18 +5,26 @@
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"Dbghelp.lib")
-
+#include <any>
 
 UINT kNumVertex = 16 * 16 * 6;
 
 void MyDX::Initialize()
 {
+
 	//[ ウィンドウ、デバッグ、例外設定？の初期化 ]
 	windowSetUp.SetWindowAndSome(1280, 720);
 
 	//[ デバイス ]
 	//アダプタを探してデバイスの設定をする
 	deviceSetUp.SetGoodDevice();
+
+	// [ DescriptorHeapSize ]
+	uint32_t const descriptorSizeSRV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
+	uint32_t const descriptorSizeRTV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	uint32_t const descriptorSizeDSV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+
 
 	//[ フェンス ]
 	fenceSetUp.SetFence(deviceSetUp.device, deviceSetUp.dxgiFactory);
@@ -65,21 +73,34 @@ void MyDX::Initialize()
 	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * kNumVertex);
 	//materilalResourceの生成
 	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vector4<float>));
+	//materilalSpriteResourceの生成
+	iD3D12SetUp.materialSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Material));
 	//vpvResourceの生成
 	iD3D12SetUp.wvpResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Matrix4));
 	//vertexSpriteResourceの作成
 	iD3D12SetUp.vertexSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 6);
 	//transformationMatrixSpriteResourceの作成
-	iD3D12SetUp.transformationMatrixSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Matrix4) * 6);
+	iD3D12SetUp.transformationMatrixSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Matrix4));
 
 	//Textureを読み込んで転送する
-	DirectX::ScratchImage mipImages = LoadTexture("Resource/TestImage/uvChecker.png");
-	dxTexSetUp.metaData = mipImages.GetMetadata();
-	dxTexSetUp.textureResource = iD3D12SetUp.CreateTextureResource(deviceSetUp.device, dxTexSetUp.metaData);
-	iD3D12SetUp.intermediateResource = iD3D12SetUp.UploadtextureData(dxTexSetUp.textureResource, mipImages, deviceSetUp.device);
+	dxTexSetUp.textureResourceDataList.emplace_back(dxTexSetUp.LoadTextureData("Resource/TestImage/uvChecker.png", deviceSetUp.device));
+	dxTexSetUp.textureResourceDataList.emplace_back(dxTexSetUp.LoadTextureData("Resource/TestImage/monsterBall.png", deviceSetUp.device));
 
-	//metaDataをもとにShaderReaourceViewDescの設定
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = iD3D12SetUp.CreateSRVDesc(dxTexSetUp.metaData.format, dxTexSetUp.metaData.mipLevels);
+	//DirectX::ScratchImage mipImages = LoadTexture();
+	//dxTexSetUp.metaData = mipImages.GetMetadata();
+	//dxTexSetUp.textureResource = iD3D12SetUp.CreateTextureResource(deviceSetUp.device, dxTexSetUp.metaData);
+	std::vector<D3D12_SHADER_RESOURCE_VIEW_DESC >srvDescs;
+
+	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr)
+	{
+		iD3D12SetUp.intermediateResource = iD3D12SetUp.UploadtextureData((*itr).textureResource, (*itr).mipImages,
+			deviceSetUp.device);
+		//metaDataをもとにShaderReaourceViewDescの設定
+		srvDescs.emplace_back(iD3D12SetUp.CreateSRVDesc((*itr).metaData.format, (*itr).metaData.mipLevels));
+
+	}
+
+
 
 	//depthStencilresourceの作成
 	iD3D12SetUp.depthStencilTextureResource = iD3D12SetUp.CreateDepthStencilTextureResource(
@@ -100,6 +121,8 @@ void MyDX::Initialize()
 	iD3D12SetUp.OverrideVertexData();
 	//マテリアルリソースにデータを書き込む
 	iD3D12SetUp.OverrideMaterialData();
+	//マテリアルスプライトリソースにデータを書き込む
+	iD3D12SetUp.OverrideMaterialSpriteData();
 	//vpvResourceにデータを書き込む
 	iD3D12SetUp.OverrideWVPData();
 	//スプライト頂点リソースにデータを書き込む
@@ -118,25 +141,30 @@ void MyDX::Initialize()
 		swapChainDesc.BufferCount,
 		rtvDesc.Format,
 		iD3D12SetUp.srvDescriptorHeap,
-		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		iD3D12SetUp.GetCPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV),
+		iD3D12SetUp.GetGPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV));
 
-	//SRVを作成するDescriptorHeapの場所を決める
-	iD3D12SetUp.textureSrvHandleCPU =
-		iD3D12SetUp.srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	iD3D12SetUp.textureSrvHandleGPU =
-		iD3D12SetUp.srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
 	
-	//先頭はImGuiが使っているのでその次を使う
-	iD3D12SetUp.textureSrvHandleCPU.ptr +=
-		deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	iD3D12SetUp.textureSrvHandleGPU.ptr +=
-		deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	
-	//SRVの作成
-	deviceSetUp.device->CreateShaderResourceView(dxTexSetUp.textureResource, &srvDesc,
-		iD3D12SetUp.textureSrvHandleCPU);
-	
+	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr)
+	{
+		TextureHandle tmp
+		{
+			iD3D12SetUp.GetCPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV),
+			iD3D12SetUp.GetGPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV)
+		};
+
+		//SRVを作成するDescriptorHeapの場所を決める
+		iD3D12SetUp.textureHandles.emplace_back(tmp);
+	}
+
+	auto itr2 = srvDescs.begin();
+	auto itr3 = iD3D12SetUp.textureHandles.begin();
+	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr,++itr2, ++itr3)
+	{
+		//SRVの作成
+		deviceSetUp.device->CreateShaderResourceView((*itr).textureResource, &(*itr2),
+			(*itr3).textureSrvHandleCPU);
+	}
 
 }
 void MyDX::Update()
@@ -193,6 +221,7 @@ void MyDX::Update()
 	//RootSignatureを設定、PSOに設定しているけど別途必要
 	iD3D12SetUp.commandList->SetGraphicsRootSignature(iD3D12SetUp.rootSignature);
 	iD3D12SetUp.commandList->SetPipelineState(iD3D12SetUp.graghicsPipelineState);
+
 	//VBV
 	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferView);
 	//形状の設定。PSOに設定しているものと同じものを選択
@@ -202,16 +231,20 @@ void MyDX::Update()
 	//wvp用Cバッファの場所を指定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.wvpResource->GetGPUVirtualAddress());
 	//SRVのDescriptortableの先頭を設定。2はrootparameter[2]である
-	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureSrvHandleGPU);
+	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2,iD3D12SetUp.textureHandles[1].textureSrvHandleGPU);
 	//描画(DrawCall)。3頂点で一つのインスタンス
 	iD3D12SetUp.commandList->DrawInstanced(kNumVertex, 1, 0, 0);
 	
-	////spriteの描画
-	//iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
-	////TransformationMatrixCBufferの場所を設定
-	//iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixSpriteResource->GetGPUVirtualAddress());
-	////描画
-	//iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);
+
+	//spriteの描画
+	//マテリアルのCバッファの場所を指定
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialSpriteResource->GetGPUVirtualAddress());
+	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
+	//TransformationMatrixCBufferの場所を設定
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixSpriteResource->GetGPUVirtualAddress());
+	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureHandles[0].textureSrvHandleGPU);
+	//描画
+	iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);
 
 
 	//画面に書く処理が終わり、画面に映すので、状態を遷移
@@ -228,7 +261,7 @@ void MyDX::Update()
 	//コマンドリストの内容を確定させる
 	HRESULT hr = iD3D12SetUp.commandList->Close();
 	assert(SUCCEEDED(hr));
-	Log(windowSetUp.debugLog, "Complete stack command\n");
+	//Log(windowSetUp.debugLog, "Complete stack command\n");
 
 	//GPUにコマンドリストの実行を行わさせる
 	ID3D12CommandList* commandLists[] = { iD3D12SetUp.commandList };

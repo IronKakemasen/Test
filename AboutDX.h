@@ -24,7 +24,7 @@ public:
 	ShaderCompileSetUp shaderSetUp;
 	//TextureResource,mipData
 	DirectXTextureSetUp dxTexSetUp;
-
+	
 
 
 	void Initialize();

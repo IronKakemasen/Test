@@ -1,0 +1,48 @@
+Use Adapter:NVIDIA GeForce RTX 3050 Ti Laptop GPU
+
+FeatureLevel:12.2
+
+Complete create D3D12Device
+
+Complete built fence
+
+Complete creat event
+
+Complete create CommandQueue
+
+Complete create AlloCator
+
+Complete create CommandList
+
+Complete create SwapChain
+
+Complete create rtvDescriptorHeap
+
+Complete pull Resource
+
+Complete create rootSignature
+
+Complete load shader
+
+Complete compile
+
+Compile Succeeded,path:Object3D.VS.hlsl,profile:vs_6_0
+
+VertexShader Compiled
+
+Complete load shader
+
+Complete compile
+
+Compile Succeeded,path:Object3D.PS.hlsl,profile:ps_6_0
+
+PixcelShader Compiled
+
+Complete create graghicsPipelineState
+
+vertexSum:0
+
+mattawayo
+
+mattawayo
+

@@ -3,12 +3,14 @@
 #include <Windows.h>
 #include <cstdint>
 #include <cassert>
+#include <d3d12.h>
+#include <dxgi1_6.h>
 #include "AboutDebugLog.h"
 #include "AboutException.h"
 #include "AboutImgui.h"
 #include "VertexData.h"
-#include <d3d12.h>
-#include <dxgi1_6.h>
+#include "Material.h"
+#include "TransformationMatrix.h"
 
 //ウィンドウプロシージャ
 inline LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,

@@ -6,6 +6,7 @@
 
 struct DeviceSetUp
 {
+
 	//DXGIファクトリーの作成
 	IDXGIFactory7* dxgiFactory = nullptr;
 	//使用するアダプタ用の変数。

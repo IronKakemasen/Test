@@ -117,6 +117,8 @@
     <ClInclude Include="External\imgui\imstb_textedit.h" />
     <ClInclude Include="External\imgui\imstb_truetype.h" />
     <ClInclude Include="GlobalVariable.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="TransformationMatrix.h" />
     <ClInclude Include="VertexData.h" />
     <ClInclude Include="VecAndMat.h" />
   </ItemGroup>

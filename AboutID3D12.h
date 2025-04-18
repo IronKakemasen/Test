@@ -8,6 +8,12 @@
 
 #include <vector>
 
+struct TextureHandle
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU;
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU;
+
+};
 
 struct ID3D12SetUp
 {
@@ -36,12 +42,14 @@ struct ID3D12SetUp
 	ID3D12Resource* wvpResource = nullptr;
 	ID3D12Resource* vertexSpriteResource = nullptr;
 	ID3D12Resource* transformationMatrixSpriteResource = nullptr;
+	ID3D12Resource* materialSpriteResource = nullptr;
+
 
 	//[ Handle ]
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2];
-	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = {};
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = {};
+	std::vector<TextureHandle >textureHandles;
+
 
 	//[ View ]
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
@@ -62,11 +70,17 @@ struct ID3D12SetUp
 	Matrix4* wvpData = nullptr;
 	Matrix4* transformationMatrixSpriteData = nullptr;
 	Vector4<float>* materialData = nullptr;
+	Material* materialResourceData = nullptr;
 	VertexData* vertexData = nullptr;
 	VertexData* vertexSpriteData = nullptr;
 
+	inline static uint32_t CPUDescriptorHandleIndex = 0;
+	inline static uint32_t GPUDescriptorHandleIndex = 0;
 
 
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_, uint32_t descriptorSize_);
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_, uint32_t descriptorSize_);
 	//ラスタライザーの設定
 	D3D12_RASTERIZER_DESC GetRasterizerDesc();
 	//DepthStencilViewDesc(DSVDesc)の設定
@@ -118,6 +132,8 @@ struct ID3D12SetUp
 	void OverrideWVPData();
 	//マテリアルリソースにデータを書き込む
 	void OverrideMaterialData();
+	//マテリアルスプタイトリソースにデータを書き込む
+	void OverrideMaterialSpriteData();
 	//頂点リソースにデータを書き込む
 	void OverrideVertexData();
 	//スプライト頂点リソースにデータを書き込む
