@@ -3,6 +3,7 @@
 #include "AboutWindow.h"
 #include "External/DirectXTex/DirectXTex.h"
 #include <map>
+
 #include <vector>
 
 struct TextureResourceData

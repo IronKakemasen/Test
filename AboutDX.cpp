@@ -5,6 +5,7 @@
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"Dbghelp.lib")
+
 #include <any>
 
 UINT kNumVertex = 16 * 16 * 6;
@@ -20,7 +21,7 @@ void MyDX::Initialize()
 	deviceSetUp.SetGoodDevice();
 
 	// [ DescriptorHeapSize ]
-	uint32_t const descriptorSizeSRV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
+	uint32_t const descriptorSizeSRV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	uint32_t const descriptorSizeRTV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	uint32_t const descriptorSizeDSV = deviceSetUp.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
@@ -42,11 +43,11 @@ void MyDX::Initialize()
 	//SwapChainの設定
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = iD3D12SetUp.SetSwapChain(windowSetUp.hwnd, windowSetUp.kClientWidth,
 		windowSetUp.kClientHeight, deviceSetUp.dxgiFactory);
-	
+
 
 	//RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので,ShaderVisibleはfalse
 	iD3D12SetUp.rtvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
-		D3D12_DESCRIPTOR_HEAP_TYPE_RTV,2, false);
+		D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 	//SRV用のヒープでディスクリプタの数は128。SRVはShader内で触るもなので,ShaderVisibleはtrue
 	iD3D12SetUp.srvDescriptorHeap = iD3D12SetUp.MakeDescriptorHeap(deviceSetUp.device,
 		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
@@ -68,14 +69,14 @@ void MyDX::Initialize()
 	shaderSetUp.CompileMyShaderes();
 	//PSOの作成
 	iD3D12SetUp.MakePSO(shaderSetUp.vertexShaderBlob, shaderSetUp.pixcelShaderBlob, deviceSetUp.device);
-	
+
 	//VertexResourceの生成
 	iD3D12SetUp.vertexResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * kNumVertex);
 	//vertexSpriteResourceの作成
 	iD3D12SetUp.vertexSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(VertexData) * 6);
 
 	//materilalResourceの生成
-	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Vector4<float>));
+	iD3D12SetUp.materialResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Material));
 	//materilalSpriteResourceの生成
 	iD3D12SetUp.materialSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(Material));
 
@@ -84,13 +85,16 @@ void MyDX::Initialize()
 	//transformationMatrixSpriteResourceの作成
 	iD3D12SetUp.transformationMatrixSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(TransformationMatrix));
 
+	//DirectionalLightResourceの生成
+	iD3D12SetUp.directionalLightResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(DirectionalLight));
+
+	//indexResourceSpriteData
+	iD3D12SetUp.indexSpriteResource = iD3D12SetUp.CreateBufferResource(deviceSetUp.device, sizeof(uint32_t) * 6);
+
 	//Textureを読み込んで転送する
 	dxTexSetUp.textureResourceDataList.emplace_back(dxTexSetUp.LoadTextureData("Resource/TestImage/uvChecker.png", deviceSetUp.device));
 	dxTexSetUp.textureResourceDataList.emplace_back(dxTexSetUp.LoadTextureData("Resource/TestImage/monsterBall.png", deviceSetUp.device));
 
-	//DirectX::ScratchImage mipImages = LoadTexture();
-	//dxTexSetUp.metaData = mipImages.GetMetadata();
-	//dxTexSetUp.textureResource = iD3D12SetUp.CreateTextureResource(deviceSetUp.device, dxTexSetUp.metaData);
 	std::vector<D3D12_SHADER_RESOURCE_VIEW_DESC >srvDescs;
 
 	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr)
@@ -116,6 +120,9 @@ void MyDX::Initialize()
 	deviceSetUp.device->CreateDepthStencilView(iD3D12SetUp.depthStencilTextureResource, &depthStencilViewDesc,
 		iD3D12SetUp.dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
+	//IndexBufferViewの設定
+	iD3D12SetUp.SetIndexBufferView(1);
+
 
 	//頂点リソースにデータを書き込む
 	iD3D12SetUp.OverrideVertexData();
@@ -129,6 +136,10 @@ void MyDX::Initialize()
 	iD3D12SetUp.OverrideTransformationMatrixSpriteData();
 	//頂点用のMatrixリソースにデータを書き込む
 	iD3D12SetUp.OverrideTransformationMatrixData();
+	//DirectionalLightDataを書き込む
+	iD3D12SetUp.OverrideDirectionalLightData();
+	//IndexResourceDataを書き込む
+	iD3D12SetUp.OverrideIndexResourceData();
 
 	//ImGuiの初期化
 	IMGUI_CHECKVERSION();
@@ -143,7 +154,7 @@ void MyDX::Initialize()
 		iD3D12SetUp.GetCPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV),
 		iD3D12SetUp.GetGPUDescriptorHandle(iD3D12SetUp.srvDescriptorHeap, descriptorSizeSRV));
 
-	
+
 	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr)
 	{
 		TextureHandle tmp
@@ -158,7 +169,7 @@ void MyDX::Initialize()
 
 	auto itr2 = srvDescs.begin();
 	auto itr3 = iD3D12SetUp.textureHandles.begin();
-	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr,++itr2, ++itr3)
+	for (auto itr = dxTexSetUp.textureResourceDataList.begin(); itr != dxTexSetUp.textureResourceDataList.end(); ++itr, ++itr2, ++itr3)
 	{
 		//SRVの作成
 		deviceSetUp.device->CreateShaderResourceView((*itr).textureResource, &(*itr2),
@@ -202,7 +213,7 @@ void MyDX::Update()
 
 	//指定した色で画面全体をクリアする
 	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };
-	
+
 
 	//<<<<<<<<<<<<<<<<<<<<<<<画面に書く>>>>>>>>>>>>>>>>>>>>>>>>>
 	iD3D12SetUp.commandList->ClearRenderTargetView(iD3D12SetUp.rtvHandles[backBufferIndex], clearColor, 0, nullptr);
@@ -227,23 +238,37 @@ void MyDX::Update()
 	iD3D12SetUp.commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//マテリアルのCバッファの場所を指定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialResource->GetGPUVirtualAddress());
-	//wvp用Cバッファの場所を指定
+	//transformationMatrixResource用Cバッファの場所を指定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixResource->GetGPUVirtualAddress());
 	//SRVのDescriptortableの先頭を設定。2はrootparameter[2]である
-	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2,iD3D12SetUp.textureHandles[1].textureSrvHandleGPU);
+	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureHandles[0].textureSrvHandleGPU);
+	//DirectionalLight用のバッファの場所を指定
+	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(3, iD3D12SetUp.directionalLightResource->GetGPUVirtualAddress());
+
 	//描画(DrawCall)。3頂点で一つのインスタンス
 	iD3D12SetUp.commandList->DrawInstanced(kNumVertex, 1, 0, 0);
-	
+
+	////spriteの描画
+	//iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
+	////マテリアルのCバッファの場所を指定
+	//iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialSpriteResource->GetGPUVirtualAddress());
+	////TransformationMatrixCBufferの場所を設定
+	//iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixSpriteResource->GetGPUVirtualAddress());
+	//iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureHandles[0].textureSrvHandleGPU);
+	////描画
+	//iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);
+
 
 	//spriteの描画
 	//マテリアルのCバッファの場所を指定
+	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
+	iD3D12SetUp.commandList->IASetIndexBuffer(&iD3D12SetUp.indexBufferSpriteView);
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(0, iD3D12SetUp.materialSpriteResource->GetGPUVirtualAddress());
 	//TransformationMatrixCBufferの場所を設定
 	iD3D12SetUp.commandList->SetGraphicsRootConstantBufferView(1, iD3D12SetUp.transformationMatrixSpriteResource->GetGPUVirtualAddress());
-	iD3D12SetUp.commandList->IASetVertexBuffers(0, 1, &iD3D12SetUp.vertexBufferSpriteView);
 	iD3D12SetUp.commandList->SetGraphicsRootDescriptorTable(2, iD3D12SetUp.textureHandles[0].textureSrvHandleGPU);
 	//描画
-	iD3D12SetUp.commandList->DrawInstanced(6, 1, 0, 0);
+	iD3D12SetUp.commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 
 	//画面に書く処理が終わり、画面に映すので、状態を遷移
@@ -319,3 +344,4 @@ void MyDX::Finalize()
 	Log(windowSetUp.debugLog, "Complete close window\n");
 
 }
+

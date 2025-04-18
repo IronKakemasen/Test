@@ -16,7 +16,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	Transform trans;
 	trans.scale = { 1.0f,1.0f,1.0f,1.0f };
-	trans.pos = { 4.0f,0.0f,5,1.0f };
+	trans.pos = { -0.25f,0.0f,2.5f,1.0f };
 
 	Transform trans2;
 	trans2.scale = { 1.0f,1.0f,1.0f,1.0f };
@@ -51,11 +51,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			//W
 			trans.mat = Get_SRTMat3D(trans.scale, trans.rotateTheta, trans.pos);
 			trans.rotateTheta.y -= 0.5f;
+			trans.rotateTheta.x -= 0.5f;
 
 			//WVP
 			Matrix4 newMat = trans.mat.Multiply(vpvmat);
 			
 			myDx.iD3D12SetUp.transformationMatrixData->WVP = newMat;
+			myDx.iD3D12SetUp.transformationMatrixData->World = trans.mat;
+
 
 
 

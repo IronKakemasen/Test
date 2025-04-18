@@ -11,6 +11,7 @@
 #include "VertexData.h"
 #include "Material.h"
 #include "TransformationMatrix.h"
+#include "DirectionalLight.h"
 
 //ウィンドウプロシージャ
 inline LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,

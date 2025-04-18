@@ -2,7 +2,7 @@
 
 
 
-D3D12_CPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_, 
+D3D12_CPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_,
 	uint32_t descriptorSize_)
 {
 	D3D12_CPU_DESCRIPTOR_HANDLE ret_handleCPU = descrptorHeap_->GetCPUDescriptorHandleForHeapStart();
@@ -23,6 +23,26 @@ D3D12_GPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetGPUDescriptorHandle(ID3D12Descriptor
 
 	return ret_handleGPU;
 }
+
+//IndexResourceDataを書き込む
+void ID3D12SetUp::OverrideIndexResourceData()
+{
+	indexSpriteResource->Map(0, nullptr, reinterpret_cast<void**>(&indexSpriteData));
+
+	indexSpriteData[0] = 0;	indexSpriteData[1] = 1;	indexSpriteData[2] = 2;
+	indexSpriteData[3] = 1;	indexSpriteData[4] = 3;	indexSpriteData[5] = 2;
+}
+
+//DirectionalLightDataの書き込む
+void ID3D12SetUp::OverrideDirectionalLightData()
+{
+	//書き込むためのアドレスを取得
+	directionalLightResource->Map(0, nullptr, reinterpret_cast<void**>(&directionalLightData));
+	directionalLightData->color = { 1.0f,1.0f, 1.0f, 1.0f };
+	directionalLightData->direction = { 0.0f,-1.0f,0.0f };
+	directionalLightData->intensity = 1.0f;
+}
+
 
 //頂点用のMatrixリソースにデータを書き込む
 void ID3D12SetUp::OverrideTransformationMatrixData()
@@ -211,6 +231,13 @@ void ID3D12SetUp::SetRootParameter()
 	//tableで利用する
 	rootParameters[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
 
+	//CBVを使う
+	rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	//pixcelShaderを使う
+	rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	//レジスタ番号1を使う
+	rootParameters[3].Descriptor.ShaderRegister = 1;
+
 }
 
 //DXの行列の設定
@@ -246,7 +273,6 @@ void ID3D12SetUp::OverrideMaterialSpriteData()
 	materialSpriteResource->Map(0, nullptr, reinterpret_cast<void**>(&materialResourceData));
 	//色
 	materialResourceData->color = { 1.0f,1.0f,1.0f,1.0f };
-	materialResourceData->enableLighting = false;
 }
 
 
@@ -257,7 +283,9 @@ void ID3D12SetUp::OverrideMaterialData()
 	//書き込むためのアドレスを取得
 	materialResource->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	//色
-	*materialData = { 1.0f,1.0f,1.0f,1.0f };
+	materialData->color = { 1.0f,1.0f,1.0f,1.0f };
+	materialData->enableLighting = true;
+
 }
 
 //頂点リソースにデータを書き込む
@@ -266,11 +294,9 @@ void ID3D12SetUp::OverrideVertexData()
 	//書き込むためのアドレスを取得
 	vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
 
-	float const kSubdivision{16};
+	float const kSubdivision{ 16 };
 	float const delta_t = Torima::kPi / kSubdivision;
 	float const delta_p = Torima::kPi * 2.0f / kSubdivision;
-
-	int vertexSum{0};
 
 	//経度の方向に分割(-0.5Pi <= cur_t <= 0.5Pi)
 	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex)
@@ -297,10 +323,10 @@ void ID3D12SetUp::OverrideVertexData()
 				cosf(cur_t) * sinf(cur_p),
 				1.0f
 			};
-			vertexData[start].texcoord = 
-			{ 
+			vertexData[start].texcoord =
+			{
 				float(lonIndex / kSubdivision),
-				1.0f - float(latIndex / kSubdivision) 
+				1.0f - float(latIndex / kSubdivision)
 			};
 
 
@@ -329,7 +355,7 @@ void ID3D12SetUp::OverrideVertexData()
 			vertexData[start + 2].texcoord =
 			{
 				float((lonIndex + 1) / kSubdivision),
-				1.0f - float(latIndex  / kSubdivision)
+				1.0f - float(latIndex / kSubdivision)
 			};
 
 
@@ -359,16 +385,11 @@ void ID3D12SetUp::OverrideVertexData()
 				vertexData[start + i].normal.x = vertexData[start + i].position.x;
 				vertexData[start + i].normal.y = vertexData[start + i].position.y;
 				vertexData[start + i].normal.z = vertexData[start + i].position.z;
-
 			}
 
 		}
 
 	}
-
-	//vertexの数
-	Log(WindowSetUp::debugLog, std::format("vertexSum:{}\n", std::to_string(vertexSum)));
-
 
 }
 
@@ -387,36 +408,30 @@ void ID3D12SetUp::OverrideVertexSpriteData()
 	vertexSpriteData[2].position = { 640.0f,360.0f,0.0f,1.0f };
 	vertexSpriteData[2].texcoord = { 1.0f,1.0f };
 
-	//左上
-	vertexSpriteData[3].position = { 0.0f,0.0f,0.0f,1.0f };
-	vertexSpriteData[3].texcoord = { 0.0f,0.0f };
 	//右上
-	vertexSpriteData[4].position = { 640.0f,0.0f,0.0f,1.0f };
-	vertexSpriteData[4].texcoord = { 1.0f,0.0f };
-	//右下
-	vertexSpriteData[5].position = { 640.0f,360.0f,0.0f,1.0f };
-	vertexSpriteData[5].texcoord = { 1.0f,1.0f };
+	vertexSpriteData[3].position = { 640.0f,0.0f,0.0f,1.0f };
+	vertexSpriteData[3].texcoord = { 1.0f,0.0f };
 
 }
 
 
 //VertexBufferView(vertexBufferView)の作成
-void ID3D12SetUp::SetVertexBufferView(UINT numVertexes_)
+void ID3D12SetUp::SetIndexBufferView(UINT numSprites_)
 {
 	//リソースの先頭アドレスから使う
-	vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
-	//使用する頂点のサイズ
-	vertexBufferView.SizeInBytes = sizeof(VertexData) * numVertexes_;
+	indexBufferSpriteView.BufferLocation = indexSpriteResource->GetGPUVirtualAddress();
+	//使用するリソースのサイズはインデックス6つ分
+	indexBufferSpriteView.SizeInBytes = sizeof(uint32_t) * 6 * numSprites_;
 	//1頂点当たりのサイズ
-	vertexBufferView.StrideInBytes = sizeof(VertexData);
+	indexBufferSpriteView.Format = DXGI_FORMAT_R32_UINT;
 }
 
-void ID3D12SetUp::SetVertexBufferSpriteView(UINT numSprite_)
+void ID3D12SetUp::SetVertexBufferSpriteView(UINT numSprites_)
 {
 	//リソースの先頭アドレスから使う
 	vertexBufferSpriteView.BufferLocation = vertexSpriteResource->GetGPUVirtualAddress();
 	//使用する頂点のサイズ
-	vertexBufferSpriteView.SizeInBytes = sizeof(VertexData) * 6 * numSprite_;
+	vertexBufferSpriteView.SizeInBytes = sizeof(VertexData) * 4 * numSprites_;
 	//1頂点当たりのサイズ
 	vertexBufferSpriteView.StrideInBytes = sizeof(VertexData);
 }
@@ -514,6 +529,18 @@ D3D12_RASTERIZER_DESC ID3D12SetUp::GetRasterizerDesc()
 
 	return ret_rasterizerDesc;
 }
+
+//VertexBufferView(vertexBufferView)の作成
+void ID3D12SetUp::SetVertexBufferView(UINT numVertexes_)
+{
+	//リソースの先頭アドレスから使う
+	vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
+	//使用する頂点のサイズ
+	vertexBufferView.SizeInBytes = sizeof(VertexData) * numVertexes_;
+	//1頂点当たりのサイズ
+	vertexBufferView.StrideInBytes = sizeof(VertexData);
+}
+
 
 //BufferResource(example: VertexBuffer,constantbuffer)を作る関数
 ID3D12Resource* ID3D12SetUp::CreateBufferResource(ID3D12Device* device_, size_t sizeInByte_)
@@ -720,5 +747,6 @@ void ID3D12SetUp::Finalize()
 	materialSpriteResource->Release();
 	vertexResource->Release();
 	materialResource->Release();
-
+	directionalLightResource->Release();
+	indexSpriteResource->Release();
 }

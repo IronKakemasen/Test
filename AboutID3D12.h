@@ -2,9 +2,9 @@
 
 #include "AboutWindow.h"
 #include <dxcapi.h>
-#include "VecAndMat.h"
 #include "External/DirectXTex/DirectXTex.h"
 #include "External/DirectXTex/d3dx12.h"
+
 
 #include <vector>
 
@@ -47,15 +47,38 @@ struct ID3D12SetUp
 	ID3D12Resource* materialSpriteResource = nullptr;
 	ID3D12Resource* materialResource = nullptr;
 
+	ID3D12Resource* directionalLightResource = nullptr;
+	ID3D12Resource* indexSpriteResource = nullptr;
+
+
+
+
+	//[ SomeData ]
+	TransformationMatrix* transformationMatrixData = nullptr;
+	TransformationMatrix* transformationMatrixSpriteData = nullptr;
+
+	Material* materialData = nullptr;
+	Material* materialResourceData = nullptr;
+
+	VertexData* vertexData = nullptr;
+	VertexData* vertexSpriteData = nullptr;
+
+	DirectionalLight* directionalLightData = nullptr;
+
+	uint32_t* indexSpriteData = nullptr;
+
 	//[ Handle ]
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2];
 	std::vector<TextureHandle >textureHandles;
 
-
 	//[ View ]
+	//書き込む
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+	//読み込む
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferSpriteView{};
+	D3D12_INDEX_BUFFER_VIEW indexBufferSpriteView{};
+
 
 	//具体的にshaderがどこかでデータを読めばいいのかの情報をまとめたもの
 	//shaderとPSOのバインダー
@@ -64,23 +87,12 @@ struct ID3D12SetUp
 	ID3DBlob* signatureBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 	//複数設定できるので配列
-	D3D12_ROOT_PARAMETER rootParameters[3] = {};
+	D3D12_ROOT_PARAMETER rootParameters[4] = {};
 	//Shaderで扱うViewのDescriptorを設定するために使う
 	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
 
-	//[ SomeData ]
-	TransformationMatrix* transformationMatrixData = nullptr;
-	TransformationMatrix* transformationMatrixSpriteData = nullptr;
-
-	Vector4<float>* materialData = nullptr;
-	Material* materialResourceData = nullptr;
-
-	VertexData* vertexData = nullptr;
-	VertexData* vertexSpriteData = nullptr;
-
 	inline static uint32_t CPUDescriptorHandleIndex = 0;
 	inline static uint32_t GPUDescriptorHandleIndex = 0;
-
 
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descrptorHeap_, uint32_t descriptorSize_);
@@ -108,10 +120,8 @@ struct ID3D12SetUp
 	void SetRootParameter();
 	//DXの行列の設定
 	void SetDXMatrix(int32_t kClientWidth_, int32_t kClientHeight_, D3D12_VIEWPORT& dst_viewport_, D3D12_RECT dst_scissorRect_);
-	//VertexBufferViewの作成
-	void SetVertexBufferView(UINT numTriangle_);
 	//VertexBufferViewSpriteの作成
-	void SetVertexBufferSpriteView(UINT numSprite_);
+	void SetVertexBufferSpriteView(UINT numSprites_);
 	//PSOの作成
 	void MakePSO(IDxcBlob* vertexShaderBlob_, IDxcBlob* pixcelShaderBlob_, ID3D12Device* device_);
 	//BufferResource(example: VertexBuffer,constantbuffer)を作る関数
@@ -130,6 +140,10 @@ struct ID3D12SetUp
 	void PullSwapChainResource(ID3D12Device* device_);
 	//RTVの設定
 	D3D12_RENDER_TARGET_VIEW_DESC SetRenderTargetView(ID3D12Device* device_);
+	//IBVの設定
+	void SetIndexBufferView(UINT numSprites_);
+	//VertexBufferViewの作成
+	void SetVertexBufferView(UINT numVertexes_);
 
 
 	//マテリアルリソースにデータを書き込む
@@ -144,6 +158,11 @@ struct ID3D12SetUp
 	void OverrideTransformationMatrixSpriteData();
 	//頂点用のMatrixリソースにデータを書き込む
 	void OverrideTransformationMatrixData();
+	//DirectionalLightDataを書き込む
+	void OverrideDirectionalLightData();
+	//indexResourceDataを書き込む
+	void OverrideIndexResourceData();
+
 
 
 	void Finalize();
