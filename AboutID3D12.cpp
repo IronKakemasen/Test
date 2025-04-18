@@ -24,17 +24,29 @@ D3D12_GPU_DESCRIPTOR_HANDLE ID3D12SetUp::GetGPUDescriptorHandle(ID3D12Descriptor
 	return ret_handleGPU;
 }
 
+//頂点用のMatrixリソースにデータを書き込む
+void ID3D12SetUp::OverrideTransformationMatrixData()
+{
+	//書き込むためのアドレスを取得
+	transformationMatrixResource->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData));
+	//単位行列を書き込んでおく
+	Matrix4 tmp;
+	transformationMatrixData->WVP = tmp;
+	transformationMatrixData->World = tmp;
+
+}
 
 //スプライト用のMatrixリソースにデータを書き込む
-void ID3D12SetUp::OverrideMatrixSpriteData()
+void ID3D12SetUp::OverrideTransformationMatrixSpriteData()
 {
 	//書き込むためのアドレスを取得
 	transformationMatrixSpriteResource->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixSpriteData));
 	//単位行列を書き込んでおく
 	Matrix4 tmp;
-	*transformationMatrixSpriteData = tmp;
-}
+	transformationMatrixSpriteData->WVP = tmp;
+	transformationMatrixSpriteData->World = tmp;
 
+}
 
 //ShaderResourceViewDescの生成(とりま適当引数)
 D3D12_SHADER_RESOURCE_VIEW_DESC ID3D12SetUp::CreateSRVDesc(DXGI_FORMAT metaDataFormat_, size_t mipLevels_)
@@ -218,14 +230,14 @@ void ID3D12SetUp::SetDXMatrix(int32_t kClientWidth_, int32_t kClientHeight_, D3D
 	dst_scissorRect_.top = 0;
 }
 
-//wvpリソースにデータを書き込む
-void ID3D12SetUp::OverrideWVPData()
-{
-	wvpResource->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
-	//単位行列を書き込んでおく
-	Matrix4 tmp;
-	*wvpData = tmp;
-}
+////wvpリソースにデータを書き込む
+//void ID3D12SetUp::OverrideWVPData()
+//{
+//	wvpResource->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
+//	//単位行列を書き込んでおく
+//	Matrix4 tmp;
+//	*wvpData = tmp;
+//}
 
 //マテリアルスプライトリソースにデータを書き込む
 void ID3D12SetUp::OverrideMaterialSpriteData()
@@ -702,7 +714,6 @@ void ID3D12SetUp::Finalize()
 	dsvDescriptorHeap->Release();
 
 	depthStencilTextureResource->Release();
-	wvpResource->Release();
 	intermediateResource->Release();
 	vertexSpriteResource->Release();
 	transformationMatrixSpriteResource->Release();

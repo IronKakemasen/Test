@@ -37,13 +37,15 @@ struct ID3D12SetUp
 	ID3D12Resource* swapChainResources[2] = { nullptr };
 	ID3D12Resource* intermediateResource = nullptr;
 	ID3D12Resource* depthStencilTextureResource = nullptr;
-	ID3D12Resource* vertexResource = nullptr;
-	ID3D12Resource* materialResource = nullptr;
-	ID3D12Resource* wvpResource = nullptr;
-	ID3D12Resource* vertexSpriteResource = nullptr;
-	ID3D12Resource* transformationMatrixSpriteResource = nullptr;
-	ID3D12Resource* materialSpriteResource = nullptr;
 
+	ID3D12Resource* vertexResource = nullptr;
+	ID3D12Resource* vertexSpriteResource = nullptr;
+
+	ID3D12Resource* transformationMatrixSpriteResource = nullptr;
+	ID3D12Resource* transformationMatrixResource = nullptr;
+
+	ID3D12Resource* materialSpriteResource = nullptr;
+	ID3D12Resource* materialResource = nullptr;
 
 	//[ Handle ]
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
@@ -67,10 +69,12 @@ struct ID3D12SetUp
 	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
 
 	//[ SomeData ]
-	Matrix4* wvpData = nullptr;
-	Matrix4* transformationMatrixSpriteData = nullptr;
+	TransformationMatrix* transformationMatrixData = nullptr;
+	TransformationMatrix* transformationMatrixSpriteData = nullptr;
+
 	Vector4<float>* materialData = nullptr;
 	Material* materialResourceData = nullptr;
+
 	VertexData* vertexData = nullptr;
 	VertexData* vertexSpriteData = nullptr;
 
@@ -128,8 +132,6 @@ struct ID3D12SetUp
 	D3D12_RENDER_TARGET_VIEW_DESC SetRenderTargetView(ID3D12Device* device_);
 
 
-	//wvpリソースにデータを書き込む
-	void OverrideWVPData();
 	//マテリアルリソースにデータを書き込む
 	void OverrideMaterialData();
 	//マテリアルスプタイトリソースにデータを書き込む
@@ -139,7 +141,9 @@ struct ID3D12SetUp
 	//スプライト頂点リソースにデータを書き込む
 	void OverrideVertexSpriteData();
 	//スプライト用のMatrixリソースにデータを書き込む
-	void OverrideMatrixSpriteData();
+	void OverrideTransformationMatrixSpriteData();
+	//頂点用のMatrixリソースにデータを書き込む
+	void OverrideTransformationMatrixData();
 
 
 	void Finalize();
